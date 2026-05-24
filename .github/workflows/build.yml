@@ -1,0 +1,45 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+
+    - name: esp-idf build
+      uses: espressif/esp-idf-ci-action@v1
+      with:
+        esp_idf_version: v6.0.1
+        target: esp32s3
+        path: 'screen'
+
+    - name: Collect artifacts
+      run: |
+        mkdir -p release
+        cp screen/build/screen.bin release/
+        cp screen/build/bootloader/bootloader.bin release/
+        cp screen/build/partition_table/partition-table.bin release/
+        cp screen/build/flasher_args.json release/
+        cp screen/build/flash_args release/
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          release/screen.bin
+          release/bootloader.bin
+          release/partition-table.bin
+          release/flasher_args.json
+          release/flash_args
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
