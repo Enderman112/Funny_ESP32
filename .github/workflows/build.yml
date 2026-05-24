@@ -47,7 +47,7 @@ jobs:
       with:
         esp_idf_version: v6.0.1
         target: esp32s3
-        path: 'screen'
+        path: '.'
 
     - name: Collect artifacts
       run: |
