@@ -35,7 +35,7 @@ static void create_hello_world_ui(void)
     lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 }
 
-void app_main(void)
+extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "Initializing display...");
     RlcdPort.RLCD_Init();
