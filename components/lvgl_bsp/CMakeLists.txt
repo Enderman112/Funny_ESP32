@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS
+    "lvgl_bsp.cpp"
+    PRIV_REQUIRES 
+    display_bsp
+    esp_timer
+    REQUIRES
+    lvgl__lvgl
+    INCLUDE_DIRS 
+    "./")
