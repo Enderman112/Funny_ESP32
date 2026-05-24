@@ -56,7 +56,8 @@ jobs:
         cp build/partition_table/partition-table.bin release/
         cp build/flasher_args.json release/
         cp build/flash_args release/
-        python -m esptool --chip esp32s3 merge_bin -o release/FunnyEsp32.bin @build/flash_args
+        pip install esptool
+        esptool.py --chip esp32s3 merge_bin -o release/FunnyEsp32.bin @build/flash_args
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
