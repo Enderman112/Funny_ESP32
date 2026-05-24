@@ -2,11 +2,38 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
+  generate-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.generate.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate tag
+        id: generate
+        run: |
+          DATE=$(date +'%Y%m%d')
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "tag=v${DATE}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ steps.generate.outputs.tag }}
+          git push origin ${{ steps.generate.outputs.tag }}
+
   build:
+    needs: generate-tag
     runs-on: ubuntu-latest
 
     steps:
@@ -31,15 +58,31 @@ jobs:
         cp screen/build/flasher_args.json release/
         cp screen/build/flash_args release/
 
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
       with:
+        name: esp32s3-firmware
+        path: release/
+
+  release:
+    needs: [generate-tag, build]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: esp32s3-firmware
+        path: release/
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ needs.generate-tag.outputs.tag }}
+        name: Release ${{ needs.generate-tag.outputs.tag }}
+        generate_release_notes: true
         files: |
           release/screen.bin
           release/bootloader.bin
           release/partition-table.bin
           release/flasher_args.json
           release/flash_args
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
