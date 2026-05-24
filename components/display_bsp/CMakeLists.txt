@@ -2,7 +2,8 @@ idf_component_register(
     SRCS 
     "display_bsp.cpp" 
     PRIV_REQUIRES 
-    driver
+    esp_driver_gpio
+    esp_driver_spi
     esp_lcd
     esp_timer 
     INCLUDE_DIRS 
