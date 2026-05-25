@@ -1,3 +1,3 @@
 idf_component_register(SRCS "main.cpp"
                     INCLUDE_DIRS "."
-                    REQUIRES display_bsp lvgl_bsp button_bsp)
+                    REQUIRES display_bsp lvgl_bsp button_bsp wifi_bsp web_server)
