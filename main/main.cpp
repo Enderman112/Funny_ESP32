@@ -9,6 +9,8 @@
 #include "lvgl_bsp.h"
 #include "user_config.h"
 #include "button_bsp.h"
+#include "wifi_bsp.h"
+#include "web_server.h"
 
 static const char *TAG = "HelloWorld";
 
@@ -168,6 +170,12 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "Initializing button...");
     Custom_ButtonInit();
     
+    ESP_LOGI(TAG, "Initializing WiFi...");
+    wifi_bsp_init();
+    
+    ESP_LOGI(TAG, "Initializing Web Server...");
+    web_server_init();
+    
     if(Lvgl_lock(-1)) {
         ESP_LOGI(TAG, "Creating Menu UI...");
         create_menu_ui();
@@ -177,6 +185,7 @@ extern "C" void app_main(void)
     xTaskCreatePinnedToCore(button_task, "button_task", 4 * 1024, NULL, 5, NULL, 1);
     
     ESP_LOGI(TAG, "Menu system ready!");
+    ESP_LOGI(TAG, "Web admin: http://[IP]");
     
     while(1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
