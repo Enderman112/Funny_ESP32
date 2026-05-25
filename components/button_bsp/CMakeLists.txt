@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS 
+    "button_bsp.c"
+    "src/multi_button/multi_button.c"
+    PRIV_REQUIRES 
+    esp_driver_gpio
+    esp_timer
+    INCLUDE_DIRS 
+    "."
+    "src/multi_button")
