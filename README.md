@@ -6,7 +6,20 @@ ESP32-S3 RLCD 4.2寸屏幕驱动项目，基于 ESP-IDF v6.0.1 和 LVGL。
 
 - RLCD 反射式 LCD 屏幕驱动
 - LVGL 图形界面支持
+- 菜单系统（按键控制）
 - 自动编译发布（GitHub Actions）
+
+## 菜单操作
+
+| 操作 | 功能 |
+|------|------|
+| 长按KEY | 呼出菜单 / 确认选择 |
+| 短按KEY | 切换菜单项 |
+
+菜单显示在屏幕右上角，包含三个选项：
+- **Hello World** - 默认主页
+- **Info** - 显示设备信息
+- **About** - 显示版本信息
 
 ## 硬件
 
@@ -23,6 +36,7 @@ ESP32-S3 RLCD 4.2寸屏幕驱动项目，基于 ESP-IDF v6.0.1 和 LVGL。
 | CS | 40 |
 | RST | 41 |
 | TE | 6 |
+| KEY | 0 |
 
 ## 编译
 
@@ -51,6 +65,7 @@ esptool.py write_flash 0x0 bootloader.bin 0x8000 partition-table.bin 0x10000 scr
 
 ```
 ├── components/
+│   ├── button_bsp/     # 按键驱动
 │   ├── display_bsp/    # 屏幕驱动
 │   └── lvgl_bsp/       # LVGL 初始化
 ├── main/
