@@ -20,7 +20,7 @@ DisplayPort RlcdPort(RLCD_MOSI_PIN, RLCD_SCK_PIN, RLCD_DC_PIN, RLCD_CS_PIN, RLCD
 static bool menu_visible = false;
 static int menu_selected = 0;
 static const int menu_count = 2;
-static const char* menu_items[] = {"Hello World", "Info"};
+static const char* menu_items[] = {"Hello World", "信息"};
 static lv_obj_t *menu_panel = NULL;
 static lv_obj_t *menu_labels[2] = {NULL};
 static lv_obj_t *hello_label = NULL;
@@ -54,10 +54,10 @@ static void execute_menu_item(void)
                     char info_buf[128];
                     snprintf(info_buf, sizeof(info_buf),
                              "Funny ESP32\n\n"
-                             "Current: %s\n"
-                             "Latest:  %s\n\n"
+                             "当前版本: %s\n"
+                             "最新版本: %s\n\n"
                              "ESP32-S3 RLCD 4.2\"\n"
-                             "400 x 300 px",
+                             "400 x 300 像素",
                              FIRMWARE_VERSION,
                              wifi_bsp_get_latest_version());
                     lv_label_set_text(hello_label, info_buf);

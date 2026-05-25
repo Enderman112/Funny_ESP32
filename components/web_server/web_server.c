@@ -10,7 +10,7 @@ static const char *TAG = "WebServer";
 static const char* HTML_HEADER = "<!DOCTYPE html><html><head>"
     "<meta charset='UTF-8'>"
     "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
-    "<title>Funny ESP32 Admin</title>"
+    "<title>Funny ESP32 管理后台</title>"
     "<style>"
     "body{font-family:Arial,sans-serif;margin:20px;background:#f0f0f0;}"
     ".card{background:white;padding:20px;margin:10px 0;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);}"
@@ -31,33 +31,33 @@ static esp_err_t root_handler(httpd_req_t *req)
     int len = 0;
     
     len += snprintf(buf + len, sizeof(buf) - len, "%s", HTML_HEADER);
-    len += snprintf(buf + len, sizeof(buf) - len, "<h1>Funny ESP32 Admin</h1>");
+    len += snprintf(buf + len, sizeof(buf) - len, "<h1>Funny ESP32 管理后台</h1>");
     
     // WiFi status
-    len += snprintf(buf + len, sizeof(buf) - len, "<div class='card'><h2>WiFi Status</h2>");
+    len += snprintf(buf + len, sizeof(buf) - len, "<div class='card'><h2>WiFi 状态</h2>");
     if (wifi_bsp_is_connected()) {
         len += snprintf(buf + len, sizeof(buf) - len, 
-            "<div class='status connected'>Connected</div>"
-            "<p><strong>SSID:</strong> %s</p>"
+            "<div class='status connected'>已连接</div>"
+            "<p><strong>名称:</strong> %s</p>"
             "<p><strong>IP:</strong> %s</p>",
             wifi_bsp_get_ssid(), wifi_bsp_get_ip());
     } else {
         len += snprintf(buf + len, sizeof(buf) - len, 
-            "<div class='status disconnected'>Disconnected</div>"
-            "<p><strong>SSID:</strong> %s</p>",
+            "<div class='status disconnected'>未连接</div>"
+            "<p><strong>名称:</strong> %s</p>",
             wifi_bsp_get_ssid());
     }
     len += snprintf(buf + len, sizeof(buf) - len, "</div>");
     
     // WiFi config form
     len += snprintf(buf + len, sizeof(buf) - len, 
-        "<div class='card'><h2>Change WiFi</h2>"
+        "<div class='card'><h2>更换 WiFi</h2>"
         "<form action='/wifi' method='post'>"
-        "<label>SSID:</label>"
+        "<label>名称:</label>"
         "<input type='text' name='ssid' required>"
-        "<label>Password:</label>"
+        "<label>密码:</label>"
         "<input type='password' name='password' required>"
-        "<input type='submit' value='Connect'>"
+        "<input type='submit' value='连接'>"
         "</form></div>");
     
     len += snprintf(buf + len, sizeof(buf) - len, "%s", HTML_FOOTER);
