@@ -48,6 +48,7 @@ jobs:
         esp_idf_version: v6.0.1
         target: esp32s3
         path: '.'
+        extra_docker_args: -e FIRMWARE_VERSION=${{ needs.generate-tag.outputs.tag }}
 
     - name: Collect artifacts
       run: |

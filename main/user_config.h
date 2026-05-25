@@ -12,4 +12,9 @@
 #define RLCD_RST_PIN   GPIO_NUM_41
 #define RLCD_TE_PIN    GPIO_NUM_6
 
+/*version - auto updated by CI*/
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "dev"
+#endif
+
 #endif

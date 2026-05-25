@@ -50,10 +50,18 @@ static void execute_menu_item(void)
                 lv_label_set_text(hello_label, "Hello World!");
                 break;
             case 1: // Info
-                lv_label_set_text(hello_label, "Funny ESP32 v1.0\n\n"
-                                                "ESP32-S3 RLCD 4.2\"\n"
-                                                "400 x 300 px\n"
-                                                "GPIO: 12/11/5/40/41");
+                {
+                    char info_buf[128];
+                    snprintf(info_buf, sizeof(info_buf),
+                             "Funny ESP32\n\n"
+                             "Current: %s\n"
+                             "Latest:  %s\n\n"
+                             "ESP32-S3 RLCD 4.2\"\n"
+                             "400 x 300 px",
+                             FIRMWARE_VERSION,
+                             wifi_bsp_get_latest_version());
+                    lv_label_set_text(hello_label, info_buf);
+                }
                 break;
         }
         

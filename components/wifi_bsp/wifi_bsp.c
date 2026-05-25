@@ -3,6 +3,7 @@
 #include "esp_event.h"
 #include "nvs_flash.h"
 #include "esp_log.h"
+#include "esp_http_client.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -11,6 +12,51 @@ static const char *TAG = "WiFi_BSP";
 static bool is_connected = false;
 static char current_ip[16] = {0};
 static char current_ssid[33] = {0};
+static char latest_version[32] = "unknown";
+
+static esp_err_t http_event_handler(esp_http_client_event_t *evt)
+{
+    switch (evt->event_id) {
+        case HTTP_EVENT_ON_DATA:
+            if (evt->data_len > 0 && evt->data_len < 512) {
+                char *tag_start = strstr((char*)evt->data, "\"tag_name\":\"");
+                if (tag_start) {
+                    tag_start += 12;
+                    char *tag_end = strchr(tag_start, '"');
+                    if (tag_end) {
+                        int len = tag_end - tag_start;
+                        if (len > 31) len = 31;
+                        strncpy(latest_version, tag_start, len);
+                        latest_version[len] = '\0';
+                        ESP_LOGI(TAG, "Latest version: %s", latest_version);
+                    }
+                }
+            }
+            break;
+        default:
+            break;
+    }
+    return ESP_OK;
+}
+
+static void fetch_latest_version(void)
+{
+    esp_http_client_config_t config = {
+        .url = "https://api.github.com/repos/Enderman112/Funny_ESP32/releases/latest",
+        .event_handler = http_event_handler,
+        .timeout_ms = 5000,
+    };
+    
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_http_client_set_header(client, "User-Agent", "ESP32");
+    esp_err_t err = esp_http_client_perform(client);
+    
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "HTTP request failed: %s", esp_err_to_name(err));
+    }
+    
+    esp_http_client_cleanup(client);
+}
 
 static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
@@ -24,6 +70,9 @@ static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_
                 (uint8_t)(pxip >> 16), (uint8_t)(pxip >> 24));
         ESP_LOGI(TAG, "Connected, IP: %s", current_ip);
         is_connected = true;
+        
+        // Fetch latest version from GitHub
+        fetch_latest_version();
     } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
         ESP_LOGI(TAG, "Disconnected");
         is_connected = false;
@@ -92,4 +141,9 @@ void wifi_bsp_connect(const char* ssid, const char* password)
     esp_wifi_connect();
     
     ESP_LOGI(TAG, "Connecting to new WiFi: %s", ssid);
+}
+
+const char* wifi_bsp_get_latest_version(void)
+{
+    return latest_version;
 }

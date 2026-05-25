@@ -6,5 +6,6 @@ idf_component_register(
     esp_event
     nvs_flash
     esp_netif
+    esp_http_client
     INCLUDE_DIRS 
     ".")
