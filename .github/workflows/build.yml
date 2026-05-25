@@ -53,6 +53,7 @@ jobs:
     - name: Collect artifacts
       run: |
         mkdir -p release
+        cp build/screen.bin release/
         cp build/bootloader/bootloader.bin release/
         cp build/partition_table/partition-table.bin release/
         cp build/flasher_args.json release/
