@@ -17,10 +17,10 @@ DisplayPort RlcdPort(RLCD_MOSI_PIN, RLCD_SCK_PIN, RLCD_DC_PIN, RLCD_CS_PIN, RLCD
 // Menu state
 static bool menu_visible = false;
 static int menu_selected = 0;
-static const int menu_count = 3;
-static const char* menu_items[] = {"Hello World", "Info", "About"};
+static const int menu_count = 2;
+static const char* menu_items[] = {"Hello World", "Info"};
 static lv_obj_t *menu_panel = NULL;
-static lv_obj_t *menu_labels[3] = {NULL};
+static lv_obj_t *menu_labels[2] = {NULL};
 static lv_obj_t *hello_label = NULL;
 
 static void update_menu_ui(void)
@@ -48,10 +48,10 @@ static void execute_menu_item(void)
                 lv_label_set_text(hello_label, "Hello World!");
                 break;
             case 1: // Info
-                lv_label_set_text(hello_label, "ESP32-S3\nRLCD 4.2\"\n400x300");
-                break;
-            case 2: // About
-                lv_label_set_text(hello_label, "Funny ESP32\nv1.0");
+                lv_label_set_text(hello_label, "Funny ESP32 v1.0\n\n"
+                                                "ESP32-S3 RLCD 4.2\"\n"
+                                                "400 x 300 px\n"
+                                                "GPIO: 12/11/5/40/41");
                 break;
         }
         
@@ -86,7 +86,7 @@ static void create_menu_ui(void)
     
     // Create menu panel (right-top corner)
     menu_panel = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(menu_panel, 120, 80);
+    lv_obj_set_size(menu_panel, 120, 60);
     lv_obj_align(menu_panel, LV_ALIGN_TOP_RIGHT, -10, 10);
     lv_obj_set_style_bg_color(menu_panel, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_border_width(menu_panel, 2, 0);
