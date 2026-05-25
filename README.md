@@ -22,6 +22,7 @@ ESP32-S3 RLCD 4.2寸屏幕驱动项目，基于 ESP-IDF v6.0.1 和 LVGL。
 | DC | 5 |
 | CS | 40 |
 | RST | 41 |
+| TE | 6 |
 
 ## 编译
 
