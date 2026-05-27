@@ -64,7 +64,11 @@ static const char* HTML_FOOTER = "<div class='footer'>Funny ESP32 &copy; 2026 | 
 
 static esp_err_t root_handler(httpd_req_t *req)
 {
-    char buf[8192];
+    char *buf = malloc(8192);
+    if (!buf) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+        return ESP_FAIL;
+    }
     int len = 0;
     
     len += snprintf(buf + len, sizeof(buf) - len, "%s", HTML_HEADER);
@@ -139,6 +143,7 @@ static esp_err_t root_handler(httpd_req_t *req)
     
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_send(req, buf, len);
+    free(buf);
     return ESP_OK;
 }
 
