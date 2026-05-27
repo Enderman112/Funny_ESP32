@@ -290,19 +290,23 @@ static void fetch_deepseek_info(void)
     config.url = "https://api.deepseek.com/user/balance";
     config.event_handler = deepseek_balance_handler;
     config.timeout_ms = 5000;
+    config.skip_cert_common_name_check = true;
     
+    ESP_LOGI(TAG, "Fetching DeepSeek balance...");
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "Authorization", auth_header);
     esp_http_client_set_header(client, "Accept", "application/json");
     esp_err_t err = esp_http_client_perform(client);
     
     if (err != ESP_OK) {
-        snprintf(deepseek_error, sizeof(deepseek_error), "余额查询失败");
+        snprintf(deepseek_error, sizeof(deepseek_error), "请求失败: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "DeepSeek request failed: %s", esp_err_to_name(err));
         esp_http_client_cleanup(client);
         return;
     }
     
     int status = esp_http_client_get_status_code(client);
+    ESP_LOGI(TAG, "DeepSeek status: %d", status);
     esp_http_client_cleanup(client);
     
     if (status != 200) {
