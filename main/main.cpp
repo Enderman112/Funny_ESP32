@@ -19,7 +19,7 @@
 #include "web_server.h"
 
 static const char *TAG = "HelloWorld";
-static nvs_handle_t nvs_handle;
+static nvs_handle_t my_nvs_handle;
 
 DisplayPort RlcdPort(RLCD_MOSI_PIN, RLCD_SCK_PIN, RLCD_DC_PIN, RLCD_CS_PIN, RLCD_RST_PIN, LCD_WIDTH, LCD_HEIGHT);
 
@@ -141,19 +141,19 @@ static void nvs_init(void)
         nvs_flash_erase();
         nvs_flash_init();
     }
-    nvs_open("storage", NVS_READWRITE, &nvs_handle);
+    nvs_open("storage", NVS_READWRITE, &my_nvs_handle);
 }
 
 static void nvs_save_string(const char* key, const char* value)
 {
-    nvs_set_str(nvs_handle, key, value);
-    nvs_commit(nvs_handle);
+    nvs_set_str(my_nvs_handle, key, value);
+    nvs_commit(my_nvs_handle);
 }
 
 static void nvs_load_string(const char* key, char* value, size_t max_len)
 {
     size_t len = max_len;
-    esp_err_t err = nvs_get_str(nvs_handle, key, value, &len);
+    esp_err_t err = nvs_get_str(my_nvs_handle, key, value, &len);
     if (err != ESP_OK) {
         value[0] = '\0';
     }
