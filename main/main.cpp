@@ -149,16 +149,42 @@ static void create_menu_ui(void)
 static void button_task(void *arg)
 {
     while(1) {
-        EventBits_t bits = xEventGroupWaitBits(BootButtonGroups, set_bit_all, pdTRUE, pdFALSE, pdMS_TO_TICKS(100));
+        EventBits_t boot_bits = xEventGroupWaitBits(BootButtonGroups, set_bit_all, pdTRUE, pdFALSE, pdMS_TO_TICKS(100));
+        EventBits_t key_bits = xEventGroupWaitBits(GP18ButtonGroups, set_bit_all, pdTRUE, pdFALSE, pdMS_TO_TICKS(100));
         
-        if (bits & set_bit_button(0)) {  // Single click - toggle menu item or info option
+        // KEY键（GPIO 18）：呼出菜单、切换菜单项、确认选择页面
+        if (key_bits & set_bit_button(0)) {  // KEY短按
             if (menu_visible) {
+                // 菜单页面：切换菜单项
                 if (Lvgl_lock(-1)) {
                     menu_selected = (menu_selected + 1) % menu_count;
                     update_menu_ui();
                     Lvgl_unlock();
                 }
+            }
+        }
+        
+        if (key_bits & set_bit_button(2)) {  // KEY长按
+            if (!menu_visible && !info_page_active) {
+                // 主页面：呼出菜单
+                show_menu();
+            } else if (menu_visible) {
+                // 菜单页面：确认选择页面
+                execute_menu_item();
             } else if (info_page_active) {
+                // Info页面：返回主页面
+                if (Lvgl_lock(-1)) {
+                    info_page_active = false;
+                    lv_label_set_text(hello_label, "Hello World!");
+                    Lvgl_unlock();
+                }
+            }
+        }
+        
+        // BOOT键（GPIO 0）：在页面内切换和调整选项
+        if (boot_bits & set_bit_button(0)) {  // BOOT短按
+            if (info_page_active) {
+                // Info页面：切换选项
                 if (Lvgl_lock(-1)) {
                     info_selected = (info_selected + 1) % info_count;
                     update_info_page();
@@ -167,23 +193,21 @@ static void button_task(void *arg)
             }
         }
         
-        if (bits & set_bit_button(2)) {  // Long press - confirm or show menu
-            if (!menu_visible && !info_page_active) {
-                show_menu();
-            } else if (menu_visible) {
-                execute_menu_item();
-            } else if (info_page_active) {
+        if (boot_bits & set_bit_button(2)) {  // BOOT长按
+            if (info_page_active) {
+                // Info页面：调整当前选项
                 if (Lvgl_lock(-1)) {
-                    if (info_selected == 0) {
-                        // WiFi info - do nothing
-                    } else if (info_selected == 1) {
-                        // Toggle AP
-                        if (wifi_bsp_is_ap_active()) {
-                            wifi_bsp_stop_ap();
-                        } else {
-                            wifi_bsp_start_ap();
-                        }
-                        update_info_page();
+                    switch (info_selected) {
+                        case 0:  // WiFi状态 - 无操作
+                            break;
+                        case 1:  // AP开关 - 切换状态
+                            if (wifi_bsp_is_ap_active()) {
+                                wifi_bsp_stop_ap();
+                            } else {
+                                wifi_bsp_start_ap();
+                            }
+                            update_info_page();
+                            break;
                     }
                     Lvgl_unlock();
                 }
