@@ -4,6 +4,7 @@
 #include "nvs_flash.h"
 #include "esp_log.h"
 #include "esp_http_client.h"
+#include "esp_netif.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -73,6 +74,16 @@ static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_
                 (uint8_t)(pxip >> 16), (uint8_t)(pxip >> 24));
         ESP_LOGI(TAG, "Connected, IP: %s", current_ip);
         is_connected = true;
+        
+        // 从路由器获取DNS（DHCP）
+        esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+        esp_netif_dns_info_t dns_info = {};
+        esp_netif_get_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns_info);
+        ESP_LOGI(TAG, "DNS from router: %d.%d.%d.%d", 
+                (uint8_t)(dns_info.ip.u_addr.ip4.addr),
+                (uint8_t)(dns_info.ip.u_addr.ip4.addr >> 8),
+                (uint8_t)(dns_info.ip.u_addr.ip4.addr >> 16),
+                (uint8_t)(dns_info.ip.u_addr.ip4.addr >> 24));
         
         // Fetch latest version from GitHub
         fetch_latest_version();

@@ -22,6 +22,53 @@ extern const char* wifi_bsp_get_latest_version(void);
 
 static const char *TAG = "WebServer";
 
+// URL解码函数
+static void url_decode(char *str) {
+    char *p = str;
+    char hex[3] = {0};
+    while (*str) {
+        if (*str == '%') {
+            if (str[1] && str[2]) {
+                hex[0] = str[1];
+                hex[1] = str[2];
+                *p = (char)strtol(hex, NULL, 16);
+                str += 3;
+            } else {
+                *p = *str++;
+            }
+        } else if (*str == '+') {
+            *p = ' ';
+            str++;
+        } else {
+            *p = *str++;
+        }
+        p++;
+    }
+    *p = '\0';
+}
+
+// 时区专用解码（保留+号）
+static void url_decode_tz(char *str) {
+    char *p = str;
+    char hex[3] = {0};
+    while (*str) {
+        if (*str == '%') {
+            if (str[1] && str[2]) {
+                hex[0] = str[1];
+                hex[1] = str[2];
+                *p = (char)strtol(hex, NULL, 16);
+                str += 3;
+            } else {
+                *p = *str++;
+            }
+        } else {
+            *p = *str++;
+        }
+        p++;
+    }
+    *p = '\0';
+}
+
 static const char* HTML_HEADER = "<!DOCTYPE html><html><head>"
     "<meta charset='UTF-8'>"
     "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
@@ -333,13 +380,9 @@ static esp_err_t ntp_handler(httpd_req_t *req)
         // Copy timezone
         strncpy(timezone, tz_start, 31);
         
-        // URL decode (simple version - replace + with space)
-        for (int i = 0; server[i]; i++) {
-            if (server[i] == '+') server[i] = ' ';
-        }
-        for (int i = 0; timezone[i]; i++) {
-            if (timezone[i] == '+') timezone[i] = ' ';
-        }
+        // URL decode
+        url_decode(server);
+        url_decode_tz(timezone);  // 时区保留+号
         
         ESP_LOGI(TAG, "NTP config: server=%s, tz=%s", server, timezone);
         ntp_set_server(server);
@@ -401,8 +444,40 @@ static esp_err_t sync_handler(httpd_req_t *req)
 
 static void ota_task(void *arg)
 {
+    char *url = (char*)arg;
+    
+    // 先获取重定向后的真实URL
+    esp_http_client_config_t get_config = {};
+    get_config.url = url;
+    get_config.timeout_ms = 10000;
+    get_config.skip_cert_common_name_check = true;
+    get_config.method = HTTP_METHOD_HEAD;
+    
+    ESP_LOGI(TAG, "OTA: checking redirect from: %s", url);
+    
+    esp_http_client_handle_t client = esp_http_client_init(&get_config);
+    esp_err_t err = esp_http_client_perform(client);
+    
+    if (err != ESP_OK) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>无法访问更新服务器</div>");
+        ESP_LOGE(TAG, "OTA redirect check failed: %s", esp_err_to_name(err));
+        esp_http_client_cleanup(client);
+        ota_in_progress = false;
+        vTaskDelete(NULL);
+        return;
+    }
+    
+    // 获取最终URL（处理重定向）
+    char final_url[512] = {0};
+    esp_http_client_get_url(client, final_url, sizeof(final_url));
+    int status = esp_http_client_get_status_code(client);
+    esp_http_client_cleanup(client);
+    
+    ESP_LOGI(TAG, "OTA: status=%d, final URL: %s", status, final_url);
+    
+    // 使用最终URL进行OTA
     esp_http_client_config_t http_config = {};
-    http_config.url = (char*)arg;
+    http_config.url = final_url;
     http_config.timeout_ms = 30000;
     http_config.buffer_size = 1024;
     http_config.skip_cert_common_name_check = true;
@@ -410,8 +485,8 @@ static void ota_task(void *arg)
     esp_https_ota_config_t ota_config = {};
     ota_config.http_config = &http_config;
     
-    ESP_LOGI(TAG, "OTA starting from: %s", http_config.url);
     snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在更新...</div>");
+    ESP_LOGI(TAG, "OTA starting from: %s", final_url);
     
     esp_err_t ret = esp_https_ota(&ota_config);
     if (ret == ESP_OK) {
