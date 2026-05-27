@@ -5,6 +5,7 @@ idf_component_register(
     esp_http_server
     esp_https_ota
     bootloader_support
+    app_update
     wifi_bsp
     INCLUDE_DIRS 
     ".")
