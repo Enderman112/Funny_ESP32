@@ -106,9 +106,9 @@ const char* ntp_get_server(void)
 
 void ntp_set_timezone(const char* tz)
 {
-    // 支持UTC偏移量格式: "+8", "-5", "+5:30"
+    // 支持格式: "+8", "-5", "UTC+8", "UTC-5", "CST-8"
     if (tz[0] == '+' || tz[0] == '-') {
-        // 转换为POSIX格式: "+8" -> "UTC-8" (注意POSIX符号相反)
+        // 偏移量格式: "+8" -> "UTC-8"
         char posix_tz[32];
         int offset = atoi(tz);
         if (offset >= 0) {
@@ -117,7 +117,20 @@ void ntp_set_timezone(const char* tz)
             snprintf(posix_tz, sizeof(posix_tz), "UTC+%d", -offset);
         }
         strncpy(ntp_timezone, posix_tz, sizeof(ntp_timezone) - 1);
+    } else if (strncmp(tz, "UTC+", 4) == 0) {
+        // "UTC+8" -> "UTC-8" (用户想表达UTC+8)
+        char posix_tz[32];
+        int offset = atoi(tz + 4);
+        snprintf(posix_tz, sizeof(posix_tz), "UTC-%d", offset);
+        strncpy(ntp_timezone, posix_tz, sizeof(ntp_timezone) - 1);
+    } else if (strncmp(tz, "UTC-", 4) == 0) {
+        // "UTC-8" -> "UTC+8" (用户想表达UTC-8)
+        char posix_tz[32];
+        int offset = atoi(tz + 4);
+        snprintf(posix_tz, sizeof(posix_tz), "UTC+%d", offset);
+        strncpy(ntp_timezone, posix_tz, sizeof(ntp_timezone) - 1);
     } else {
+        // 其他格式直接使用 (如 "CST-8")
         strncpy(ntp_timezone, tz, sizeof(ntp_timezone) - 1);
     }
     ntp_timezone[sizeof(ntp_timezone) - 1] = '\0';
