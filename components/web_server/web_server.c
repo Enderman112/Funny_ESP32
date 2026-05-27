@@ -7,6 +7,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "dev"
+#endif
+
 extern void ntp_set_server(const char* server);
 extern const char* ntp_get_server(void);
 extern void ntp_set_timezone(const char* tz);
@@ -398,16 +402,19 @@ static esp_err_t sync_handler(httpd_req_t *req)
 
 static void ota_task(void *arg)
 {
-    esp_http_client_config_t config = {};
-    config.url = (char*)arg;
-    config.timeout_ms = 30000;
-    config.buffer_size = 1024;
-    config.skip_cert_common_name_check = true;
+    esp_http_client_config_t http_config = {};
+    http_config.url = (char*)arg;
+    http_config.timeout_ms = 30000;
+    http_config.buffer_size = 1024;
+    http_config.skip_cert_common_name_check = true;
     
-    ESP_LOGI(TAG, "OTA starting from: %s", config.url);
+    esp_https_ota_config_t ota_config = {};
+    ota_config.http_config = &http_config;
+    
+    ESP_LOGI(TAG, "OTA starting from: %s", http_config.url);
     snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在更新...</div>");
     
-    esp_err_t ret = esp_https_ota(&config);
+    esp_err_t ret = esp_https_ota(&ota_config);
     if (ret == ESP_OK) {
         snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>更新成功，重启中...</div>");
         ESP_LOGI(TAG, "OTA success, restarting...");
