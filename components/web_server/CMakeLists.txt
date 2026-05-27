@@ -4,6 +4,7 @@ idf_component_register(
     REQUIRES 
     esp_http_server
     esp_https_ota
+    bootloader_support
     wifi_bsp
     INCLUDE_DIRS 
     ".")
