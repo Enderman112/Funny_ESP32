@@ -18,6 +18,8 @@
 #include "wifi_bsp.h"
 #include "web_server.h"
 
+extern "C" const lv_font_t lv_font_hei_16;
+
 static const char *TAG = "HelloWorld";
 static nvs_handle_t my_nvs_handle;
 
@@ -455,6 +457,7 @@ static void update_info_page(void)
              cursor3,
              sec_status);
     
+    lv_obj_set_style_text_font(hello_label, &lv_font_hei_16, 0);
     lv_label_set_text(hello_label, info_buf);
 }
 
@@ -552,23 +555,23 @@ static void create_menu_ui(void)
     lv_obj_set_style_text_font(clock_label, &lv_font_montserrat_28, 0);
     lv_obj_align(clock_label, LV_ALIGN_TOP_LEFT, 10, 10);
     
-    // Create main label (default page)
+    // Create main label (default page - English only)
     hello_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_label, "Hello World!");
-    lv_obj_set_style_text_font(hello_label, &lv_font_simsun_16_cjk, 0);
+    lv_obj_set_style_text_font(hello_label, &lv_font_montserrat_28, 0);
     lv_obj_align(hello_label, LV_ALIGN_CENTER, 0, 0);
     
-    // Create DeepSeek label (left side, hidden by default)
+    // Create DeepSeek label (left side, hidden by default - Chinese)
     deepseek_label = lv_label_create(lv_scr_act());
     lv_label_set_text(deepseek_label, "");
-    lv_obj_set_style_text_font(deepseek_label, &lv_font_simsun_16_cjk, 0);
+    lv_obj_set_style_text_font(deepseek_label, &lv_font_hei_16, 0);
     lv_obj_align(deepseek_label, LV_ALIGN_LEFT_MID, 10, 0);
     lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
     
-    // Create MiMo label (right side, hidden by default)
+    // Create MiMo label (right side, hidden by default - Chinese)
     mimo_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_label, "");
-    lv_obj_set_style_text_font(mimo_label, &lv_font_simsun_16_cjk, 0);
+    lv_obj_set_style_text_font(mimo_label, &lv_font_hei_16, 0);
     lv_obj_align(mimo_label, LV_ALIGN_RIGHT_MID, -10, 0);
     lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
     
@@ -586,7 +589,7 @@ static void create_menu_ui(void)
     for (int i = 0; i < menu_count; i++) {
         menu_labels[i] = lv_label_create(menu_panel);
         lv_label_set_text(menu_labels[i], menu_items[i]);
-        lv_obj_set_style_text_font(menu_labels[i], &lv_font_simsun_16_cjk, 0);
+        lv_obj_set_style_text_font(menu_labels[i], &lv_font_hei_16, 0);
         lv_obj_set_width(menu_labels[i], 100);
         lv_obj_set_style_pad_all(menu_labels[i], 3, 0);
         

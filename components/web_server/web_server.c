@@ -64,7 +64,7 @@ static const char* HTML_FOOTER = "<div class='footer'>Funny ESP32 &copy; 2026 | 
 
 static esp_err_t root_handler(httpd_req_t *req)
 {
-    char buf[4096];
+    char buf[8192];
     int len = 0;
     
     len += snprintf(buf + len, sizeof(buf) - len, "%s", HTML_HEADER);
