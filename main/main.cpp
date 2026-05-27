@@ -18,7 +18,7 @@
 #include "wifi_bsp.h"
 #include "web_server.h"
 
-extern "C" const lv_font_t lv_font_hei_16;
+extern "C" const lv_font_t lv_font_MiSansLight_16;
 
 static const char *TAG = "HelloWorld";
 static nvs_handle_t my_nvs_handle;
@@ -457,7 +457,7 @@ static void update_info_page(void)
              cursor3,
              sec_status);
     
-    lv_obj_set_style_text_font(hello_label, &lv_font_hei_16, 0);
+    lv_obj_set_style_text_font(hello_label, &lv_font_MiSansLight_16, 0);
     lv_label_set_text(hello_label, info_buf);
 }
 
@@ -503,6 +503,7 @@ static void execute_menu_item(void)
                 lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_set_style_text_font(hello_label, &lv_font_montserrat_28, 0);
                 lv_label_set_text(hello_label, "Hello World!");
                 break;
             case 1: // Info
@@ -564,14 +565,14 @@ static void create_menu_ui(void)
     // Create DeepSeek label (left side, hidden by default - Chinese)
     deepseek_label = lv_label_create(lv_scr_act());
     lv_label_set_text(deepseek_label, "");
-    lv_obj_set_style_text_font(deepseek_label, &lv_font_hei_16, 0);
+    lv_obj_set_style_text_font(deepseek_label, &lv_font_MiSansLight_16, 0);
     lv_obj_align(deepseek_label, LV_ALIGN_LEFT_MID, 10, 0);
     lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo label (right side, hidden by default - Chinese)
     mimo_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_label, "");
-    lv_obj_set_style_text_font(mimo_label, &lv_font_hei_16, 0);
+    lv_obj_set_style_text_font(mimo_label, &lv_font_MiSansLight_16, 0);
     lv_obj_align(mimo_label, LV_ALIGN_RIGHT_MID, -10, 0);
     lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
     
@@ -589,7 +590,7 @@ static void create_menu_ui(void)
     for (int i = 0; i < menu_count; i++) {
         menu_labels[i] = lv_label_create(menu_panel);
         lv_label_set_text(menu_labels[i], menu_items[i]);
-        lv_obj_set_style_text_font(menu_labels[i], &lv_font_hei_16, 0);
+        lv_obj_set_style_text_font(menu_labels[i], &lv_font_MiSansLight_16, 0);
         lv_obj_set_width(menu_labels[i], 100);
         lv_obj_set_style_pad_all(menu_labels[i], 3, 0);
         
@@ -608,10 +609,10 @@ static void create_menu_ui(void)
 static void button_task(void *arg)
 {
     while(1) {
-        EventBits_t boot_bits = xEventGroupWaitBits(BootButtonGroups, set_bit_all, pdTRUE, pdFALSE, pdMS_TO_TICKS(100));
-        EventBits_t key_bits = xEventGroupWaitBits(GP18ButtonGroups, set_bit_all, pdTRUE, pdFALSE, pdMS_TO_TICKS(100));
+        EventBits_t boot_bits = xEventGroupWaitBits(BootButtonGroups, set_bit_all, pdTRUE, pdFALSE, pdMS_TO_TICKS(50));
+        EventBits_t key_bits = xEventGroupWaitBits(GP18ButtonGroups, set_bit_all, pdTRUE, pdFALSE, pdMS_TO_TICKS(50));
         
-        // KEY键（GPIO 18）：呼出菜单、切换菜单项、确认选择页面
+        // KEY键（GPIO 18）
         if (key_bits & set_bit_button(0)) {  // KEY短按
             if (menu_visible) {
                 // 菜单页面：切换菜单项
@@ -623,41 +624,57 @@ static void button_task(void *arg)
             }
         }
         
-        // 只处理长按事件，忽略短按
-        if ((key_bits & set_bit_button(2)) && !(key_bits & set_bit_button(0))) {
-            if (!menu_visible && !info_page_active && !deepseek_page_active) {
-                // 主页面：呼出菜单
-                show_menu();
-            } else if (menu_visible) {
-                // 菜单页面：确认选择页面
+        if (key_bits & set_bit_button(2)) {  // KEY长按
+            if (menu_visible) {
+                // 菜单已打开：确认选择，隐藏菜单，显示对应页面
                 execute_menu_item();
-            } else if (info_page_active || deepseek_page_active) {
-                // Info/API页面：返回主页面
-                if (Lvgl_lock(-1)) {
-                    info_page_active = false;
-                    deepseek_page_active = false;
-                    lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
-                    lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
-                    lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
-                    lv_label_set_text(hello_label, "Hello World!");
-                    Lvgl_unlock();
-                }
+            } else {
+                // 任何页面：保持原界面，打开菜单覆盖
+                show_menu();
             }
         }
         
-        // BOOT键（GPIO 0）：在页面内切换和调整选项
+        // BOOT键（GPIO 0）
         if (boot_bits & set_bit_button(0)) {  // BOOT短按
             if (info_page_active) {
-                // Info页面：切换选项
                 if (Lvgl_lock(-1)) {
                     info_selected = (info_selected + 1) % info_count;
                     update_info_page();
                     Lvgl_unlock();
                 }
-            } else if (deepseek_page_active) {
-                // API用量页面：返回主页面
+            }
+        }
+        
+        if (boot_bits & set_bit_button(2)) {  // BOOT长按
+            if (info_page_active) {
                 if (Lvgl_lock(-1)) {
-                    deepseek_page_active = false;
+                    switch (info_selected) {
+                        case 0: break;
+                        case 1:
+                            if (wifi_bsp_is_ap_active()) wifi_bsp_stop_ap();
+                            else wifi_bsp_start_ap();
+                            update_info_page();
+                            break;
+                        case 2:
+                            clock_show_seconds = !clock_show_seconds;
+                            update_info_page();
+                            break;
+                    }
+                    Lvgl_unlock();
+                }
+            } else if (deepseek_page_active) {
+                if (Lvgl_lock(-1)) {
+                    fetch_deepseek_info();
+                    fetch_mimo_usage();
+                    update_deepseek_page();
+                    Lvgl_unlock();
+                }
+            }
+        }
+        
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
                     lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                     lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                     lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
