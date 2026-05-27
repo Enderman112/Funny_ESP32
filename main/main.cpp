@@ -22,14 +22,19 @@ DisplayPort RlcdPort(RLCD_MOSI_PIN, RLCD_SCK_PIN, RLCD_DC_PIN, RLCD_CS_PIN, RLCD
 
 // Clock state
 static lv_obj_t *clock_label = NULL;
+static bool clock_show_seconds = true;
+static bool ntp_synced = false;
+static char ntp_server[64] = "ntp.aliyun.com";
+static char ntp_timezone[32] = "CST-8";
 
 static void initialize_sntp(void)
 {
-    ESP_LOGI(TAG, "Initializing SNTP");
+    ESP_LOGI(TAG, "Initializing SNTP, server: %s, tz: %s", ntp_server, ntp_timezone);
     esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
-    esp_sntp_setservername(0, "ntp.aliyun.com");
-    esp_sntp_setservername(1, "cn.pool.ntp.org");
+    esp_sntp_setservername(0, ntp_server);
     esp_sntp_init();
+    setenv("TZ", ntp_timezone, 1);
+    tzset();
 }
 
 static void obtain_time(void)
@@ -45,9 +50,47 @@ static void obtain_time(void)
     
     if (retry < retry_count) {
         ESP_LOGI(TAG, "Time synchronized");
+        ntp_synced = true;
     } else {
         ESP_LOGW(TAG, "Failed to sync time");
+        ntp_synced = false;
     }
+}
+
+void ntp_set_server(const char* server)
+{
+    strncpy(ntp_server, server, sizeof(ntp_server) - 1);
+    ntp_server[sizeof(ntp_server) - 1] = '\0';
+    esp_sntp_stop();
+    obtain_time();
+}
+
+const char* ntp_get_server(void)
+{
+    return ntp_server;
+}
+
+void ntp_set_timezone(const char* tz)
+{
+    strncpy(ntp_timezone, tz, sizeof(ntp_timezone) - 1);
+    ntp_timezone[sizeof(ntp_timezone) - 1] = '\0';
+    setenv("TZ", ntp_timezone, 1);
+    tzset();
+}
+
+const char* ntp_get_timezone(void)
+{
+    return ntp_timezone;
+}
+
+void clock_set_show_seconds(bool show)
+{
+    clock_show_seconds = show;
+}
+
+bool clock_get_show_seconds(void)
+{
+    return clock_show_seconds;
 }
 
 static void update_clock(void)
@@ -60,11 +103,16 @@ static void update_clock(void)
     localtime_r(&now, &timeinfo);
     
     if (timeinfo.tm_year < (2016 - 1900)) {
-        lv_label_set_text(clock_label, "--:--:--");
+        lv_label_set_text(clock_label, "--:--");
     } else {
         char time_buf[16];
-        snprintf(time_buf, sizeof(time_buf), "%02d:%02d:%02d", 
-                 timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        if (clock_show_seconds) {
+            snprintf(time_buf, sizeof(time_buf), "%02d:%02d:%02d", 
+                     timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        } else {
+            snprintf(time_buf, sizeof(time_buf), "%02d:%02d", 
+                     timeinfo.tm_hour, timeinfo.tm_min);
+        }
         lv_label_set_text(clock_label, time_buf);
     }
 }
@@ -91,8 +139,8 @@ static lv_obj_t *hello_label = NULL;
 
 // Info page state
 static bool info_page_active = false;
-static int info_selected = 0;  // 0: WiFi状态, 1: AP开关
-static const int info_count = 2;
+static int info_selected = 0;  // 0: WiFi状态, 1: AP开关, 2: 显示秒
+static const int info_count = 3;
 
 // DeepSeek page state
 static bool deepseek_page_active = false;
@@ -157,15 +205,14 @@ static void fetch_deepseek_info(void)
         return;
     }
     
-    // 查询余额
-    esp_http_client_config_t config = {
-        .url = "https://api.deepseek.com/user/balance",
-        .event_handler = deepseek_balance_handler,
-        .timeout_ms = 5000,
-    };
-    
     char auth_header[80];
     snprintf(auth_header, sizeof(auth_header), "Bearer %s", deepseek_api_key);
+    
+    // 查询余额
+    esp_http_client_config_t config = {};
+    config.url = "https://api.deepseek.com/user/balance";
+    config.event_handler = deepseek_balance_handler;
+    config.timeout_ms = 5000;
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "Authorization", auth_header);
@@ -244,21 +291,25 @@ static void update_info_page(void)
     
     char info_buf[256];
     const char* ap_status = wifi_bsp_is_ap_active() ? "开启" : "关闭";
-    const char* ap_cursor1 = (info_selected == 0) ? "> " : "  ";
-    const char* ap_cursor2 = (info_selected == 1) ? "> " : "  ";
+    const char* cursor1 = (info_selected == 0) ? "> " : "  ";
+    const char* cursor2 = (info_selected == 1) ? "> " : "  ";
+    const char* cursor3 = (info_selected == 2) ? "> " : "  ";
+    const char* ntp_status = ntp_synced ? "已同步" : "同步失败";
+    const char* sec_status = clock_show_seconds ? "开" : "关";
     
     snprintf(info_buf, sizeof(info_buf),
-             "Funny ESP32\n\n"
-             "当前版本: %s\n"
-             "最新版本: %s\n\n"
+             "信息\n\n"
+             "NTP: %s\n"
              "%sWiFi: %s\n"
-             "%sAP热点: %s",
-             FIRMWARE_VERSION,
-             wifi_bsp_get_latest_version(),
-             ap_cursor1,
+             "%sAP热点: %s\n"
+             "%s显示秒: %s",
+             ntp_status,
+             cursor1,
              wifi_bsp_is_connected() ? "已连接" : "未连接",
-             ap_cursor2,
-             ap_status);
+             cursor2,
+             ap_status,
+             cursor3,
+             sec_status);
     
     lv_label_set_text(hello_label, info_buf);
 }
@@ -443,6 +494,10 @@ static void button_task(void *arg)
                             } else {
                                 wifi_bsp_start_ap();
                             }
+                            update_info_page();
+                            break;
+                        case 2:  // 显示秒 - 切换状态
+                            clock_show_seconds = !clock_show_seconds;
                             update_info_page();
                             break;
                     }

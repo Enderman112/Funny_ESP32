@@ -5,6 +5,13 @@
 #include <string.h>
 #include <stdio.h>
 
+extern void ntp_set_server(const char* server);
+extern const char* ntp_get_server(void);
+extern void ntp_set_timezone(const char* tz);
+extern const char* ntp_get_timezone(void);
+extern void clock_set_show_seconds(bool show);
+extern bool clock_get_show_seconds(void);
+
 static const char *TAG = "WebServer";
 
 static const char* HTML_HEADER = "<!DOCTYPE html><html><head>"
@@ -80,6 +87,18 @@ static esp_err_t root_handler(httpd_req_t *req)
         "<input type='submit' value='保存'>"
         "</form></div>",
         current_key ? current_key : "");
+    
+    // NTP config form
+    len += snprintf(buf + len, sizeof(buf) - len, 
+        "<div class='card'><h2>NTP 时间同步</h2>"
+        "<form action='/ntp' method='post'>"
+        "<label>NTP服务器:</label>"
+        "<input type='text' name='server' value='%s'>"
+        "<label>时区:</label>"
+        "<input type='text' name='timezone' value='%s'>"
+        "<input type='submit' value='保存'>"
+        "</form></div>",
+        ntp_get_server(), ntp_get_timezone());
     
     len += snprintf(buf + len, sizeof(buf) - len, "%s", HTML_FOOTER);
     
@@ -206,6 +225,58 @@ static esp_err_t apikey_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t ntp_handler(httpd_req_t *req)
+{
+    char buf[256];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    
+    char server[64] = {0};
+    char timezone[32] = {0};
+    
+    // Parse form data
+    char *server_start = strstr(buf, "server=");
+    char *tz_start = strstr(buf, "timezone=");
+    
+    if (server_start && tz_start) {
+        server_start += 7;  // skip "server="
+        tz_start += 9;      // skip "timezone="
+        
+        // Find end of server (before &)
+        char *server_end = strchr(server_start, '&');
+        if (server_end) {
+            int len = server_end - server_start;
+            if (len > 63) len = 63;
+            strncpy(server, server_start, len);
+        }
+        
+        // Copy timezone
+        strncpy(timezone, tz_start, 31);
+        
+        // URL decode (simple version - replace + with space)
+        for (int i = 0; server[i]; i++) {
+            if (server[i] == '+') server[i] = ' ';
+        }
+        for (int i = 0; timezone[i]; i++) {
+            if (timezone[i] == '+') timezone[i] = ' ';
+        }
+        
+        ESP_LOGI(TAG, "NTP config: server=%s, tz=%s", server, timezone);
+        ntp_set_server(server);
+        ntp_set_timezone(timezone);
+    }
+    
+    // Redirect back to root
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
 void web_server_init(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -233,11 +304,17 @@ void web_server_init(void)
             .method = HTTP_POST,
             .handler = apikey_handler
         };
+        httpd_uri_t ntp = {
+            .uri = "/ntp",
+            .method = HTTP_POST,
+            .handler = ntp_handler
+        };
         
         httpd_register_uri_handler(server, &root);
         httpd_register_uri_handler(server, &wifi);
         httpd_register_uri_handler(server, &ap);
         httpd_register_uri_handler(server, &apikey);
+        httpd_register_uri_handler(server, &ntp);
         ESP_LOGI(TAG, "Web server started on port 80");
     }
 }
