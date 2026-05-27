@@ -189,3 +189,20 @@ const char* wifi_bsp_get_ap_ip(void)
 {
     return ap_ip;
 }
+
+void wifi_bsp_update_ap_password(const char* password)
+{
+    wifi_config_t ap_config;
+    esp_wifi_get_config(WIFI_IF_AP, &ap_config);
+    
+    strncpy((char*)ap_config.ap.password, password, sizeof(ap_config.ap.password) - 1);
+    
+    if (strlen(password) < 8) {
+        ap_config.ap.authmode = WIFI_AUTH_OPEN;
+    } else {
+        ap_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+    }
+    
+    esp_wifi_set_config(WIFI_IF_AP, &ap_config);
+    ESP_LOGI(TAG, "AP password updated");
+}

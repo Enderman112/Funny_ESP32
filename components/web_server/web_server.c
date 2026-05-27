@@ -60,6 +60,16 @@ static esp_err_t root_handler(httpd_req_t *req)
         "<input type='submit' value='连接'>"
         "</form></div>");
     
+    // AP password form
+    len += snprintf(buf + len, sizeof(buf) - len, 
+        "<div class='card'><h2>热点密码</h2>"
+        "<p><strong>热点名称:</strong> Funny_ESP32</p>"
+        "<form action='/ap' method='post'>"
+        "<label>新密码:</label>"
+        "<input type='password' name='password' required>"
+        "<input type='submit' value='修改'>"
+        "</form></div>");
+    
     len += snprintf(buf + len, sizeof(buf) - len, "%s", HTML_FOOTER);
     
     httpd_resp_send(req, buf, len);
@@ -117,6 +127,40 @@ static esp_err_t wifi_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t ap_handler(httpd_req_t *req)
+{
+    char buf[256];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    
+    char password[65] = {0};
+    
+    // Parse form data
+    char *pwd_start = strstr(buf, "password=");
+    if (pwd_start) {
+        pwd_start += 9;  // skip "password="
+        strncpy(password, pwd_start, 64);
+        
+        // URL decode (simple version - replace + with space)
+        for (int i = 0; password[i]; i++) {
+            if (password[i] == '+') password[i] = ' ';
+        }
+        
+        ESP_LOGI(TAG, "New AP password: %s", password);
+        wifi_bsp_update_ap_password(password);
+    }
+    
+    // Redirect back to root
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
 void web_server_init(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -134,9 +178,15 @@ void web_server_init(void)
             .method = HTTP_POST,
             .handler = wifi_handler
         };
+        httpd_uri_t ap = {
+            .uri = "/ap",
+            .method = HTTP_POST,
+            .handler = ap_handler
+        };
         
         httpd_register_uri_handler(server, &root);
         httpd_register_uri_handler(server, &wifi);
+        httpd_register_uri_handler(server, &ap);
         ESP_LOGI(TAG, "Web server started on port 80");
     }
 }
