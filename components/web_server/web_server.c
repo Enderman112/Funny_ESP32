@@ -419,6 +419,7 @@ void web_server_init(void)
         httpd_register_uri_handler(server, &apikey);
         httpd_register_uri_handler(server, &ntp);
         httpd_register_uri_handler(server, &mimo);
+        httpd_register_uri_handler(server, &sync);
         ESP_LOGI(TAG, "Web server started on port 80");
     }
 }

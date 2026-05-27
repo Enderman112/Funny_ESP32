@@ -118,7 +118,7 @@ const char* ntp_get_timezone(void)
     return ntp_timezone;
 }
 
-void ntp_sync_now(void)
+extern "C" void ntp_sync_now(void)
 {
     ntp_synced = false;
     esp_sntp_stop();
