@@ -14,6 +14,9 @@ static char current_ip[16] = {0};
 static char current_ssid[33] = {0};
 static char latest_version[32] = "unknown";
 
+static bool ap_active = false;
+static char ap_ip[16] = "192.168.4.1";
+
 static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
     switch (evt->event_id) {
@@ -146,4 +149,43 @@ void wifi_bsp_connect(const char* ssid, const char* password)
 const char* wifi_bsp_get_latest_version(void)
 {
     return latest_version;
+}
+
+void wifi_bsp_start_ap(void)
+{
+    esp_netif_create_default_wifi_ap();
+    
+    wifi_config_t ap_config = {
+        .ap = {
+            .ssid = "Funny_ESP32",
+            .ssid_len = 11,
+            .channel = 1,
+            .password = "12345678",
+            .max_connection = 4,
+            .authmode = WIFI_AUTH_WPA_WPA2_PSK,
+        },
+    };
+    
+    esp_wifi_set_mode(WIFI_MODE_APSTA);
+    esp_wifi_set_config(WIFI_IF_AP, &ap_config);
+    
+    ap_active = true;
+    ESP_LOGI(TAG, "AP started, SSID: Funny_ESP32, Password: 12345678");
+}
+
+void wifi_bsp_stop_ap(void)
+{
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    ap_active = false;
+    ESP_LOGI(TAG, "AP stopped");
+}
+
+bool wifi_bsp_is_ap_active(void)
+{
+    return ap_active;
+}
+
+const char* wifi_bsp_get_ap_ip(void)
+{
+    return ap_ip;
 }

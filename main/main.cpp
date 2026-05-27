@@ -25,6 +25,11 @@ static lv_obj_t *menu_panel = NULL;
 static lv_obj_t *menu_labels[2] = {NULL};
 static lv_obj_t *hello_label = NULL;
 
+// Info page state
+static bool info_page_active = false;
+static int info_selected = 0;  // 0: WiFi状态, 1: AP开关
+static const int info_count = 2;
+
 static void update_menu_ui(void)
 {
     if (!menu_panel) return;
@@ -42,26 +47,43 @@ static void update_menu_ui(void)
     }
 }
 
+static void update_info_page(void)
+{
+    if (!info_page_active) return;
+    
+    char info_buf[256];
+    const char* ap_status = wifi_bsp_is_ap_active() ? "开启" : "关闭";
+    const char* ap_cursor1 = (info_selected == 0) ? "> " : "  ";
+    const char* ap_cursor2 = (info_selected == 1) ? "> " : "  ";
+    
+    snprintf(info_buf, sizeof(info_buf),
+             "Funny ESP32\n\n"
+             "当前版本: %s\n"
+             "最新版本: %s\n\n"
+             "%sWiFi: %s\n"
+             "%sAP热点: %s",
+             FIRMWARE_VERSION,
+             wifi_bsp_get_latest_version(),
+             ap_cursor1,
+             wifi_bsp_is_connected() ? "已连接" : "未连接",
+             ap_cursor2,
+             ap_status);
+    
+    lv_label_set_text(hello_label, info_buf);
+}
+
 static void execute_menu_item(void)
 {
     if (Lvgl_lock(-1)) {
         switch (menu_selected) {
             case 0: // Hello World
+                info_page_active = false;
                 lv_label_set_text(hello_label, "Hello World!");
                 break;
             case 1: // Info
-                {
-                    char info_buf[128];
-                    snprintf(info_buf, sizeof(info_buf),
-                             "Funny ESP32\n\n"
-                             "当前版本: %s\n"
-                             "最新版本: %s\n\n"
-                             "ESP32-S3 RLCD 4.2\"\n"
-                             "400 x 300 像素",
-                             FIRMWARE_VERSION,
-                             wifi_bsp_get_latest_version());
-                    lv_label_set_text(hello_label, info_buf);
-                }
+                info_page_active = true;
+                info_selected = 0;
+                update_info_page();
                 break;
         }
         
@@ -129,21 +151,42 @@ static void button_task(void *arg)
     while(1) {
         EventBits_t bits = xEventGroupWaitBits(BootButtonGroups, set_bit_all, pdTRUE, pdFALSE, pdMS_TO_TICKS(100));
         
-        if (bits & set_bit_button(0)) {  // Single click - toggle menu item
+        if (bits & set_bit_button(0)) {  // Single click - toggle menu item or info option
             if (menu_visible) {
                 if (Lvgl_lock(-1)) {
                     menu_selected = (menu_selected + 1) % menu_count;
                     update_menu_ui();
                     Lvgl_unlock();
                 }
+            } else if (info_page_active) {
+                if (Lvgl_lock(-1)) {
+                    info_selected = (info_selected + 1) % info_count;
+                    update_info_page();
+                    Lvgl_unlock();
+                }
             }
         }
         
         if (bits & set_bit_button(2)) {  // Long press - confirm or show menu
-            if (!menu_visible) {
+            if (!menu_visible && !info_page_active) {
                 show_menu();
-            } else {
+            } else if (menu_visible) {
                 execute_menu_item();
+            } else if (info_page_active) {
+                if (Lvgl_lock(-1)) {
+                    if (info_selected == 0) {
+                        // WiFi info - do nothing
+                    } else if (info_selected == 1) {
+                        // Toggle AP
+                        if (wifi_bsp_is_ap_active()) {
+                            wifi_bsp_stop_ap();
+                        } else {
+                            wifi_bsp_start_ap();
+                        }
+                        update_info_page();
+                    }
+                    Lvgl_unlock();
+                }
             }
         }
         
