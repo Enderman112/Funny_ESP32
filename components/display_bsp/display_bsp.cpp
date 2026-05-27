@@ -47,12 +47,12 @@ height_(height)
     Set_ResetIOLevel(1);
 
     DisplayLen                = transfer >> 3; //(1byte 8ipex)
-    DispBuffer                = (uint8_t *) malloc(DisplayLen);
+    DispBuffer                = (uint8_t *) heap_caps_malloc(DisplayLen, MALLOC_CAP_SPIRAM);
     assert(DispBuffer);
 
 #if (AlgorithmOptimization == 3)
-	PixelIndexLUT = (uint16_t (*)[300])malloc(transfer * sizeof(uint16_t));
-	PixelBitLUT   = (uint8_t (*)[300])malloc(transfer * sizeof(uint8_t));
+	PixelIndexLUT = (uint16_t (*)[300])heap_caps_malloc(transfer * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
+	PixelBitLUT   = (uint8_t (*)[300])heap_caps_malloc(transfer * sizeof(uint8_t), MALLOC_CAP_SPIRAM);
     assert(PixelIndexLUT);
     assert(PixelBitLUT);
     if(width_ == 400) {
