@@ -1,9 +1,13 @@
 #include <stdio.h>
+#include <time.h>
+#include <sys/time.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/event_groups.h>
 #include <esp_log.h>
 #include <esp_timer.h>
+#include <esp_http_client.h>
+#include <esp_sntp.h>
 
 #include "display_bsp.h"
 #include "lvgl_bsp.h"
@@ -16,19 +20,206 @@ static const char *TAG = "HelloWorld";
 
 DisplayPort RlcdPort(RLCD_MOSI_PIN, RLCD_SCK_PIN, RLCD_DC_PIN, RLCD_CS_PIN, RLCD_RST_PIN, LCD_WIDTH, LCD_HEIGHT);
 
+// Clock state
+static lv_obj_t *clock_label = NULL;
+
+static void initialize_sntp(void)
+{
+    ESP_LOGI(TAG, "Initializing SNTP");
+    esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "ntp.aliyun.com");
+    esp_sntp_setservername(1, "cn.pool.ntp.org");
+    esp_sntp_init();
+}
+
+static void obtain_time(void)
+{
+    initialize_sntp();
+    
+    int retry = 0;
+    const int retry_count = 10;
+    while (esp_sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && ++retry < retry_count) {
+        ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry, retry_count);
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+    
+    if (retry < retry_count) {
+        ESP_LOGI(TAG, "Time synchronized");
+    } else {
+        ESP_LOGW(TAG, "Failed to sync time");
+    }
+}
+
+static void update_clock(void)
+{
+    if (!clock_label) return;
+    
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    
+    if (timeinfo.tm_year < (2016 - 1900)) {
+        lv_label_set_text(clock_label, "--:--:--");
+    } else {
+        char time_buf[16];
+        snprintf(time_buf, sizeof(time_buf), "%02d:%02d:%02d", 
+                 timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        lv_label_set_text(clock_label, time_buf);
+    }
+}
+
+static void clock_task(void *arg)
+{
+    while(1) {
+        if (Lvgl_lock(-1)) {
+            update_clock();
+            Lvgl_unlock();
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
 // Menu state
 static bool menu_visible = false;
 static int menu_selected = 0;
-static const int menu_count = 2;
-static const char* menu_items[] = {"Hello World", "信息"};
+static const int menu_count = 3;
+static const char* menu_items[] = {"Hello World", "信息", "API用量"};
 static lv_obj_t *menu_panel = NULL;
-static lv_obj_t *menu_labels[2] = {NULL};
+static lv_obj_t *menu_labels[3] = {NULL};
 static lv_obj_t *hello_label = NULL;
 
 // Info page state
 static bool info_page_active = false;
 static int info_selected = 0;  // 0: WiFi状态, 1: AP开关
 static const int info_count = 2;
+
+// DeepSeek page state
+static bool deepseek_page_active = false;
+static char deepseek_balance[32] = "未知";
+static char deepseek_usage[32] = "未知";
+static char deepseek_error[64] = "";
+static char deepseek_api_key[65] = "";
+
+static esp_err_t deepseek_balance_handler(esp_http_client_event_t *evt)
+{
+    switch (evt->event_id) {
+        case HTTP_EVENT_ON_DATA:
+            if (evt->data_len > 0 && evt->data_len < 256) {
+                char *balance_start = strstr((char*)evt->data, "\"total_balance\":\"");
+                if (balance_start) {
+                    balance_start += 17;
+                    char *balance_end = strchr(balance_start, '"');
+                    if (balance_end) {
+                        int len = balance_end - balance_start;
+                        if (len > 31) len = 31;
+                        strncpy(deepseek_balance, balance_start, len);
+                        deepseek_balance[len] = '\0';
+                    }
+                }
+            }
+            break;
+        default:
+            break;
+    }
+    return ESP_OK;
+}
+
+static esp_err_t deepseek_usage_handler(esp_http_client_event_t *evt)
+{
+    switch (evt->event_id) {
+        case HTTP_EVENT_ON_DATA:
+            if (evt->data_len > 0 && evt->data_len < 256) {
+                char *usage_start = strstr((char*)evt->data, "\"total_tokens\":");
+                if (usage_start) {
+                    usage_start += 15;
+                    char *usage_end = strchr(usage_start, '}');
+                    if (!usage_end) usage_end = strchr(usage_start, ',');
+                    if (usage_end) {
+                        int len = usage_end - usage_start;
+                        if (len > 31) len = 31;
+                        strncpy(deepseek_usage, usage_start, len);
+                        deepseek_usage[len] = '\0';
+                    }
+                }
+            }
+            break;
+        default:
+            break;
+    }
+    return ESP_OK;
+}
+
+static void fetch_deepseek_info(void)
+{
+    if (strlen(deepseek_api_key) == 0) {
+        strcpy(deepseek_error, "请先配置API密钥");
+        return;
+    }
+    
+    // 查询余额
+    esp_http_client_config_t config = {
+        .url = "https://api.deepseek.com/user/balance",
+        .event_handler = deepseek_balance_handler,
+        .timeout_ms = 5000,
+    };
+    
+    char auth_header[80];
+    snprintf(auth_header, sizeof(auth_header), "Bearer %s", deepseek_api_key);
+    
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_http_client_set_header(client, "Authorization", auth_header);
+    esp_http_client_set_header(client, "Accept", "application/json");
+    esp_err_t err = esp_http_client_perform(client);
+    
+    if (err != ESP_OK) {
+        snprintf(deepseek_error, sizeof(deepseek_error), "余额查询失败");
+        esp_http_client_cleanup(client);
+        return;
+    }
+    
+    int status = esp_http_client_get_status_code(client);
+    esp_http_client_cleanup(client);
+    
+    if (status != 200) {
+        snprintf(deepseek_error, sizeof(deepseek_error), "HTTP错误: %d", status);
+        return;
+    }
+    
+    // 查询用量
+    config.url = "https://api.deepseek.com/user/usage";
+    config.event_handler = deepseek_usage_handler;
+    
+    client = esp_http_client_init(&config);
+    esp_http_client_set_header(client, "Authorization", auth_header);
+    esp_http_client_set_header(client, "Accept", "application/json");
+    err = esp_http_client_perform(client);
+    
+    if (err != ESP_OK) {
+        snprintf(deepseek_error, sizeof(deepseek_error), "用量查询失败");
+    } else {
+        status = esp_http_client_get_status_code(client);
+        if (status != 200) {
+            snprintf(deepseek_error, sizeof(deepseek_error), "HTTP错误: %d", status);
+        } else {
+            strcpy(deepseek_error, "");
+        }
+    }
+    
+    esp_http_client_cleanup(client);
+}
+
+void deepseek_set_api_key(const char* key)
+{
+    strncpy(deepseek_api_key, key, sizeof(deepseek_api_key) - 1);
+    deepseek_api_key[sizeof(deepseek_api_key) - 1] = '\0';
+    ESP_LOGI(TAG, "DeepSeek API key updated");
+}
+
+const char* deepseek_get_api_key(void)
+{
+    return deepseek_api_key;
+}
 
 static void update_menu_ui(void)
 {
@@ -72,18 +263,50 @@ static void update_info_page(void)
     lv_label_set_text(hello_label, info_buf);
 }
 
+static void update_deepseek_page(void)
+{
+    if (!deepseek_page_active) return;
+    
+    char info_buf[256];
+    if (strlen(deepseek_error) > 0) {
+        snprintf(info_buf, sizeof(info_buf),
+                 "API用量\n\n"
+                 "错误: %s\n\n"
+                 "长按返回主页",
+                 deepseek_error);
+    } else {
+        snprintf(info_buf, sizeof(info_buf),
+                 "API用量\n\n"
+                 "余额: %s\n"
+                 "今日Token: %s\n\n"
+                 "长按刷新 / 短按返回",
+                 deepseek_balance,
+                 deepseek_usage);
+    }
+    
+    lv_label_set_text(hello_label, info_buf);
+}
+
 static void execute_menu_item(void)
 {
     if (Lvgl_lock(-1)) {
         switch (menu_selected) {
             case 0: // Hello World
                 info_page_active = false;
+                deepseek_page_active = false;
                 lv_label_set_text(hello_label, "Hello World!");
                 break;
             case 1: // Info
                 info_page_active = true;
+                deepseek_page_active = false;
                 info_selected = 0;
                 update_info_page();
+                break;
+            case 2: // API用量
+                info_page_active = false;
+                deepseek_page_active = true;
+                fetch_deepseek_info();
+                update_deepseek_page();
                 break;
         }
         
@@ -110,6 +333,12 @@ static void show_menu(void)
 
 static void create_menu_ui(void)
 {
+    // Create clock label (left-top corner)
+    clock_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(clock_label, "--:--:--");
+    lv_obj_set_style_text_font(clock_label, &lv_font_montserrat_14, 0);
+    lv_obj_align(clock_label, LV_ALIGN_TOP_LEFT, 10, 10);
+    
     // Create main label (default page)
     hello_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_label, "Hello World!");
@@ -118,7 +347,7 @@ static void create_menu_ui(void)
     
     // Create menu panel (right-top corner)
     menu_panel = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(menu_panel, 120, 60);
+    lv_obj_set_size(menu_panel, 120, 80);
     lv_obj_align(menu_panel, LV_ALIGN_TOP_RIGHT, -10, 10);
     lv_obj_set_style_bg_color(menu_panel, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_border_width(menu_panel, 2, 0);
@@ -165,16 +394,17 @@ static void button_task(void *arg)
         }
         
         if (key_bits & set_bit_button(2)) {  // KEY长按
-            if (!menu_visible && !info_page_active) {
+            if (!menu_visible && !info_page_active && !deepseek_page_active) {
                 // 主页面：呼出菜单
                 show_menu();
             } else if (menu_visible) {
                 // 菜单页面：确认选择页面
                 execute_menu_item();
-            } else if (info_page_active) {
-                // Info页面：返回主页面
+            } else if (info_page_active || deepseek_page_active) {
+                // Info/API页面：返回主页面
                 if (Lvgl_lock(-1)) {
                     info_page_active = false;
+                    deepseek_page_active = false;
                     lv_label_set_text(hello_label, "Hello World!");
                     Lvgl_unlock();
                 }
@@ -188,6 +418,13 @@ static void button_task(void *arg)
                 if (Lvgl_lock(-1)) {
                     info_selected = (info_selected + 1) % info_count;
                     update_info_page();
+                    Lvgl_unlock();
+                }
+            } else if (deepseek_page_active) {
+                // API用量页面：返回主页面
+                if (Lvgl_lock(-1)) {
+                    deepseek_page_active = false;
+                    lv_label_set_text(hello_label, "Hello World!");
                     Lvgl_unlock();
                 }
             }
@@ -209,6 +446,13 @@ static void button_task(void *arg)
                             update_info_page();
                             break;
                     }
+                    Lvgl_unlock();
+                }
+            } else if (deepseek_page_active) {
+                // API用量页面：刷新数据
+                if (Lvgl_lock(-1)) {
+                    fetch_deepseek_info();
+                    update_deepseek_page();
                     Lvgl_unlock();
                 }
             }
@@ -251,6 +495,9 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "Initializing Web Server...");
     web_server_init();
     
+    ESP_LOGI(TAG, "Initializing NTP...");
+    obtain_time();
+    
     if(Lvgl_lock(-1)) {
         ESP_LOGI(TAG, "Creating Menu UI...");
         create_menu_ui();
@@ -258,6 +505,7 @@ extern "C" void app_main(void)
     }
     
     xTaskCreatePinnedToCore(button_task, "button_task", 4 * 1024, NULL, 5, NULL, 1);
+    xTaskCreatePinnedToCore(clock_task, "clock_task", 2 * 1024, NULL, 3, NULL, 1);
     
     ESP_LOGI(TAG, "Menu system ready!");
     ESP_LOGI(TAG, "Web admin: http://[IP]");

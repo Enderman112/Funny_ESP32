@@ -17,4 +17,9 @@
 #define FIRMWARE_VERSION "dev"
 #endif
 
+/*DeepSeek API*/
+#ifndef DEEPSEEK_API_KEY
+#define DEEPSEEK_API_KEY ""
+#endif
+
 #endif

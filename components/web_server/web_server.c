@@ -70,6 +70,17 @@ static esp_err_t root_handler(httpd_req_t *req)
         "<input type='submit' value='修改'>"
         "</form></div>");
     
+    // DeepSeek API key form
+    const char* current_key = deepseek_get_api_key();
+    len += snprintf(buf + len, sizeof(buf) - len, 
+        "<div class='card'><h2>DeepSeek API</h2>"
+        "<form action='/apikey' method='post'>"
+        "<label>API密钥:</label>"
+        "<input type='password' name='apikey' value='%s'>"
+        "<input type='submit' value='保存'>"
+        "</form></div>",
+        current_key ? current_key : "");
+    
     len += snprintf(buf + len, sizeof(buf) - len, "%s", HTML_FOOTER);
     
     httpd_resp_send(req, buf, len);
@@ -161,6 +172,40 @@ static esp_err_t ap_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t apikey_handler(httpd_req_t *req)
+{
+    char buf[256];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    
+    char apikey[65] = {0};
+    
+    // Parse form data
+    char *apikey_start = strstr(buf, "apikey=");
+    if (apikey_start) {
+        apikey_start += 7;  // skip "apikey="
+        strncpy(apikey, apikey_start, 64);
+        
+        // URL decode (simple version - replace + with space)
+        for (int i = 0; apikey[i]; i++) {
+            if (apikey[i] == '+') apikey[i] = ' ';
+        }
+        
+        ESP_LOGI(TAG, "New API key configured");
+        deepseek_set_api_key(apikey);
+    }
+    
+    // Redirect back to root
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
 void web_server_init(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -183,10 +228,16 @@ void web_server_init(void)
             .method = HTTP_POST,
             .handler = ap_handler
         };
+        httpd_uri_t apikey = {
+            .uri = "/apikey",
+            .method = HTTP_POST,
+            .handler = apikey_handler
+        };
         
         httpd_register_uri_handler(server, &root);
         httpd_register_uri_handler(server, &wifi);
         httpd_register_uri_handler(server, &ap);
+        httpd_register_uri_handler(server, &apikey);
         ESP_LOGI(TAG, "Web server started on port 80");
     }
 }
