@@ -88,6 +88,17 @@ static esp_err_t root_handler(httpd_req_t *req)
         "</form></div>",
         current_key ? current_key : "");
     
+    // MiMo Cookie form
+    const char* current_cookie = mimo_get_cookie();
+    len += snprintf(buf + len, sizeof(buf) - len, 
+        "<div class='card'><h2>MiMo Cookie</h2>"
+        "<form action='/mimo' method='post'>"
+        "<label>Cookie:</label>"
+        "<input type='password' name='cookie' value='%s'>"
+        "<input type='submit' value='保存'>"
+        "</form></div>",
+        current_cookie ? current_cookie : "");
+    
     // NTP config form
     len += snprintf(buf + len, sizeof(buf) - len, 
         "<div class='card'><h2>NTP 时间同步</h2>"
@@ -277,6 +288,40 @@ static esp_err_t ntp_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t mimo_handler(httpd_req_t *req)
+{
+    char buf[512];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    
+    char cookie[256] = {0};
+    
+    // Parse form data
+    char *cookie_start = strstr(buf, "cookie=");
+    if (cookie_start) {
+        cookie_start += 7;
+        strncpy(cookie, cookie_start, 255);
+        
+        // URL decode (simple version - replace + with space)
+        for (int i = 0; cookie[i]; i++) {
+            if (cookie[i] == '+') cookie[i] = ' ';
+        }
+        
+        ESP_LOGI(TAG, "MiMo cookie updated");
+        mimo_set_cookie(cookie);
+    }
+    
+    // Redirect back to root
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
 void web_server_init(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -309,12 +354,18 @@ void web_server_init(void)
             .method = HTTP_POST,
             .handler = ntp_handler
         };
+        httpd_uri_t mimo = {
+            .uri = "/mimo",
+            .method = HTTP_POST,
+            .handler = mimo_handler
+        };
         
         httpd_register_uri_handler(server, &root);
         httpd_register_uri_handler(server, &wifi);
         httpd_register_uri_handler(server, &ap);
         httpd_register_uri_handler(server, &apikey);
         httpd_register_uri_handler(server, &ntp);
+        httpd_register_uri_handler(server, &mimo);
         ESP_LOGI(TAG, "Web server started on port 80");
     }
 }

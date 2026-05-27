@@ -149,6 +149,17 @@ static char deepseek_usage[32] = "未知";
 static char deepseek_error[64] = "";
 static char deepseek_api_key[65] = "";
 
+// MiMo state
+static char mimo_cookie[256] = "";
+static char mimo_month_used[32] = "未知";
+static char mimo_month_limit[32] = "未知";
+static int mimo_month_percent = 0;
+static char mimo_error[64] = "";
+
+// UI labels for API page
+static lv_obj_t *deepseek_label = NULL;
+static lv_obj_t *mimo_label = NULL;
+
 static esp_err_t deepseek_balance_handler(esp_http_client_event_t *evt)
 {
     switch (evt->event_id) {
@@ -268,6 +279,105 @@ const char* deepseek_get_api_key(void)
     return deepseek_api_key;
 }
 
+// MiMo API
+static esp_err_t mimo_usage_handler(esp_http_client_event_t *evt)
+{
+    switch (evt->event_id) {
+        case HTTP_EVENT_ON_DATA:
+            if (evt->data_len > 0 && evt->data_len < 1024) {
+                // Parse monthUsage percent
+                char *percent_start = strstr((char*)evt->data, "\"monthUsage\":{\"percent\":");
+                if (percent_start) {
+                    percent_start += 25;
+                    char *percent_end = strchr(percent_start, ',');
+                    if (percent_end) {
+                        char buf[8] = {0};
+                        int len = percent_end - percent_start;
+                        if (len > 7) len = 7;
+                        strncpy(buf, percent_start, len);
+                        mimo_month_percent = atoi(buf);
+                    }
+                }
+                
+                // Parse month_total_token used
+                char *used_start = strstr((char*)evt->data, "\"name\":\"month_total_token\"");
+                if (used_start) {
+                    char *u = strstr(used_start, "\"used\":");
+                    if (u) {
+                        u += 7;
+                        char *u_end = strchr(u, ',');
+                        if (u_end) {
+                            int len = u_end - u;
+                            if (len > 31) len = 31;
+                            strncpy(mimo_month_used, u, len);
+                            mimo_month_used[len] = '\0';
+                        }
+                    }
+                    char *l = strstr(used_start, "\"limit\":");
+                    if (l) {
+                        l += 8;
+                        char *l_end = strchr(l, ',');
+                        if (l_end) {
+                            int len = l_end - l;
+                            if (len > 31) len = 31;
+                            strncpy(mimo_month_limit, l, len);
+                            mimo_month_limit[len] = '\0';
+                        }
+                    }
+                }
+            }
+            break;
+        default:
+            break;
+    }
+    return ESP_OK;
+}
+
+static void fetch_mimo_usage(void)
+{
+    if (strlen(mimo_cookie) == 0) {
+        strcpy(mimo_error, "请先配置Cookie");
+        return;
+    }
+    
+    esp_http_client_config_t config = {};
+    config.url = "https://platform.xiaomimimo.com/api/v1/tokenPlan/usage";
+    config.event_handler = mimo_usage_handler;
+    config.timeout_ms = 5000;
+    
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_http_client_set_header(client, "Cookie", mimo_cookie);
+    esp_http_client_set_header(client, "Accept", "application/json");
+    esp_err_t err = esp_http_client_perform(client);
+    
+    if (err != ESP_OK) {
+        snprintf(mimo_error, sizeof(mimo_error), "请求失败");
+    } else {
+        int status = esp_http_client_get_status_code(client);
+        if (status == 401) {
+            snprintf(mimo_error, sizeof(mimo_error), "Cookie已过期");
+        } else if (status != 200) {
+            snprintf(mimo_error, sizeof(mimo_error), "HTTP错误: %d", status);
+        } else {
+            strcpy(mimo_error, "");
+        }
+    }
+    
+    esp_http_client_cleanup(client);
+}
+
+void mimo_set_cookie(const char* cookie)
+{
+    strncpy(mimo_cookie, cookie, sizeof(mimo_cookie) - 1);
+    mimo_cookie[sizeof(mimo_cookie) - 1] = '\0';
+    ESP_LOGI(TAG, "MiMo cookie updated");
+}
+
+const char* mimo_get_cookie(void)
+{
+    return mimo_cookie;
+}
+
 static void update_menu_ui(void)
 {
     if (!menu_panel) return;
@@ -318,24 +428,32 @@ static void update_deepseek_page(void)
 {
     if (!deepseek_page_active) return;
     
-    char info_buf[256];
+    // DeepSeek label (left side)
+    char ds_buf[128];
     if (strlen(deepseek_error) > 0) {
-        snprintf(info_buf, sizeof(info_buf),
-                 "API用量\n\n"
-                 "错误: %s\n\n"
-                 "长按返回主页",
-                 deepseek_error);
+        snprintf(ds_buf, sizeof(ds_buf), "DeepSeek\n\n错误: %s", deepseek_error);
     } else {
-        snprintf(info_buf, sizeof(info_buf),
-                 "API用量\n\n"
-                 "余额: %s\n"
-                 "今日Token: %s\n\n"
-                 "长按刷新 / 短按返回",
-                 deepseek_balance,
-                 deepseek_usage);
+        snprintf(ds_buf, sizeof(ds_buf), "DeepSeek\n\n余额: %s\nToken: %s", deepseek_balance, deepseek_usage);
     }
+    if (deepseek_label) lv_label_set_text(deepseek_label, ds_buf);
     
-    lv_label_set_text(hello_label, info_buf);
+    // MiMo label (right side)
+    char mimo_buf[128];
+    if (strlen(mimo_error) > 0) {
+        snprintf(mimo_buf, sizeof(mimo_buf), "MiMo\n\n错误: %s", mimo_error);
+    } else {
+        // Progress bar text
+        char bar[16] = "";
+        int filled = mimo_month_percent / 10;
+        for (int i = 0; i < 10; i++) {
+            bar[i] = (i < filled) ? '#' : '-';
+        }
+        bar[10] = '\0';
+        snprintf(mimo_buf, sizeof(mimo_buf), "MiMo\n\n本月: %d%%\n[%s]\n%s / %s", 
+                 mimo_month_percent,
+                 bar, mimo_month_used, mimo_month_limit);
+    }
+    if (mimo_label) lv_label_set_text(mimo_label, mimo_buf);
 }
 
 static void execute_menu_item(void)
@@ -345,18 +463,28 @@ static void execute_menu_item(void)
             case 0: // Hello World
                 info_page_active = false;
                 deepseek_page_active = false;
+                lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
                 lv_label_set_text(hello_label, "Hello World!");
                 break;
             case 1: // Info
                 info_page_active = true;
                 deepseek_page_active = false;
+                lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
                 info_selected = 0;
                 update_info_page();
                 break;
             case 2: // API用量
                 info_page_active = false;
                 deepseek_page_active = true;
+                lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
                 fetch_deepseek_info();
+                fetch_mimo_usage();
                 update_deepseek_page();
                 break;
         }
@@ -395,6 +523,20 @@ static void create_menu_ui(void)
     lv_label_set_text(hello_label, "Hello World!");
     lv_obj_set_style_text_font(hello_label, &lv_font_montserrat_14, 0);
     lv_obj_align(hello_label, LV_ALIGN_CENTER, 0, 0);
+    
+    // Create DeepSeek label (left side, hidden by default)
+    deepseek_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(deepseek_label, "");
+    lv_obj_set_style_text_font(deepseek_label, &lv_font_montserrat_14, 0);
+    lv_obj_align(deepseek_label, LV_ALIGN_LEFT_MID, 10, 0);
+    lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
+    
+    // Create MiMo label (right side, hidden by default)
+    mimo_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(mimo_label, "");
+    lv_obj_set_style_text_font(mimo_label, &lv_font_montserrat_14, 0);
+    lv_obj_align(mimo_label, LV_ALIGN_RIGHT_MID, -10, 0);
+    lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create menu panel (right-top corner)
     menu_panel = lv_obj_create(lv_scr_act());
@@ -456,6 +598,9 @@ static void button_task(void *arg)
                 if (Lvgl_lock(-1)) {
                     info_page_active = false;
                     deepseek_page_active = false;
+                    lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
                     lv_label_set_text(hello_label, "Hello World!");
                     Lvgl_unlock();
                 }
@@ -475,6 +620,9 @@ static void button_task(void *arg)
                 // API用量页面：返回主页面
                 if (Lvgl_lock(-1)) {
                     deepseek_page_active = false;
+                    lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
                     lv_label_set_text(hello_label, "Hello World!");
                     Lvgl_unlock();
                 }
@@ -507,6 +655,7 @@ static void button_task(void *arg)
                 // API用量页面：刷新数据
                 if (Lvgl_lock(-1)) {
                     fetch_deepseek_info();
+                    fetch_mimo_usage();
                     update_deepseek_page();
                     Lvgl_unlock();
                 }
