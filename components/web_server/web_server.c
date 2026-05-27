@@ -1,6 +1,8 @@
 #include "web_server.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
+#include "esp_https_ota.h"
+#include "esp_ota_ops.h"
 #include "wifi_bsp.h"
 #include <string.h>
 #include <stdio.h>
@@ -12,6 +14,7 @@ extern const char* ntp_get_timezone(void);
 extern void clock_set_show_seconds(bool show);
 extern bool clock_get_show_seconds(void);
 extern void ntp_sync_now(void);
+extern const char* wifi_bsp_get_latest_version(void);
 
 static const char *TAG = "WebServer";
 
@@ -64,6 +67,11 @@ static const char* HTML_FOOTER = "<div class='footer'>Funny ESP32 &copy; 2026 | 
     "</div></body></html>";
 
 #define WEB_BUF_SIZE 8192
+
+static bool ota_in_progress = false;
+static int ota_progress = 0;
+static char ota_status[64] = "";
+static char ota_url[256] = "";
 
 static esp_err_t root_handler(httpd_req_t *req)
 {
@@ -137,13 +145,31 @@ static esp_err_t root_handler(httpd_req_t *req)
         "<div class='container'><div class='header'><span class='icon'>&#128339;</span>NTP 时间同步</div><div class='body'>"
         "<form action='/ntp' method='post'>"
         "<div class='form-group'><label>NTP 服务器</label><input type='text' name='server' value='%s'></div>"
-        "<div class='form-group'><label>时区</label><input type='text' name='timezone' value='%s'></div>"
+        "<div class='form-group'><label>时区</label><input type='text' name='timezone' value='%s'>"
+        "<small style='color:#6c757d;'>UTC偏移量，如 +8(中国) +9(日本) -5(美国东部)</small></div>"
         "<button type='submit' class='btn btn-primary'>保存</button>"
         "</form>"
         "<form action='/sync' method='post' style='margin-top:10px;'>"
         "<button type='submit' class='btn btn-primary'>立即同步</button>"
         "</form></div></div>",
         ntp_get_server(), ntp_get_timezone());
+    
+    // OTA Update Container
+    const char* latest_ver = wifi_bsp_get_latest_version();
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, 
+        "<div class='container'><div class='header'><span class='icon'>&#128230;</span>固件更新</div><div class='body'>"
+        "<table class='table'>"
+        "<tr><th>当前版本</th><td>%s</td></tr>"
+        "<tr><th>最新版本</th><td>%s</td></tr>"
+        "</table>"
+        "<form action='/ota' method='post' style='margin-top:12px;'>"
+        "<button type='submit' class='btn btn-primary'%s>检查并更新</button>"
+        "</form>"
+        "%s</div></div>",
+        FIRMWARE_VERSION,
+        latest_ver,
+        ota_in_progress ? " disabled" : "",
+        ota_status);
     
     len += snprintf(buf + len, WEB_BUF_SIZE - len, "%s", HTML_FOOTER);
     
@@ -370,6 +396,56 @@ static esp_err_t sync_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static void ota_task(void *arg)
+{
+    esp_http_client_config_t config = {};
+    config.url = (char*)arg;
+    config.timeout_ms = 30000;
+    config.buffer_size = 1024;
+    
+    ESP_LOGI(TAG, "OTA starting from: %s", config.url);
+    snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在更新...</div>");
+    
+    esp_err_t ret = esp_https_ota(&config);
+    if (ret == ESP_OK) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>更新成功，重启中...</div>");
+        ESP_LOGI(TAG, "OTA success, restarting...");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        esp_restart();
+    } else {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>更新失败: %s</div>", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "OTA failed: %s", esp_err_to_name(ret));
+    }
+    
+    ota_in_progress = false;
+    vTaskDelete(NULL);
+}
+
+static esp_err_t ota_handler(httpd_req_t *req)
+{
+    if (ota_in_progress) {
+        httpd_resp_set_status(req, "302 Found");
+        httpd_resp_set_hdr(req, "Location", "/");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
+    
+    // 构建OTA URL: https://github.com/Enderman112/Funny_ESP32/releases/latest/download/FunnyEsp32.bin
+    snprintf(ota_url, sizeof(ota_url), 
+        "https://github.com/Enderman112/Funny_ESP32/releases/latest/download/FunnyEsp32.bin");
+    
+    ota_in_progress = true;
+    snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>开始更新...</div>");
+    
+    xTaskCreate(ota_task, "ota_task", 8192, ota_url, 5, NULL);
+    
+    // Redirect back to root
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
 void web_server_init(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -412,6 +488,11 @@ void web_server_init(void)
             .method = HTTP_POST,
             .handler = sync_handler
         };
+        httpd_uri_t ota = {
+            .uri = "/ota",
+            .method = HTTP_POST,
+            .handler = ota_handler
+        };
         
         httpd_register_uri_handler(server, &root);
         httpd_register_uri_handler(server, &wifi);
@@ -420,6 +501,7 @@ void web_server_init(void)
         httpd_register_uri_handler(server, &ntp);
         httpd_register_uri_handler(server, &mimo);
         httpd_register_uri_handler(server, &sync);
+        httpd_register_uri_handler(server, &ota);
         ESP_LOGI(TAG, "Web server started on port 80");
     }
 }

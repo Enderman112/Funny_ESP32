@@ -30,7 +30,7 @@ static lv_obj_t *clock_label = NULL;
 static bool clock_show_seconds = true;
 static bool ntp_synced = false;
 static char ntp_server[64] = "ntp.aliyun.com";
-static char ntp_timezone[32] = "CST-8";
+static char ntp_timezone[32] = "UTC-8";
 
 // NVS存储函数
 static void nvs_save_string(const char* key, const char* value)
@@ -106,7 +106,20 @@ const char* ntp_get_server(void)
 
 void ntp_set_timezone(const char* tz)
 {
-    strncpy(ntp_timezone, tz, sizeof(ntp_timezone) - 1);
+    // 支持UTC偏移量格式: "+8", "-5", "+5:30"
+    if (tz[0] == '+' || tz[0] == '-') {
+        // 转换为POSIX格式: "+8" -> "UTC-8" (注意POSIX符号相反)
+        char posix_tz[32];
+        int offset = atoi(tz);
+        if (offset >= 0) {
+            snprintf(posix_tz, sizeof(posix_tz), "UTC-%d", offset);
+        } else {
+            snprintf(posix_tz, sizeof(posix_tz), "UTC+%d", -offset);
+        }
+        strncpy(ntp_timezone, posix_tz, sizeof(ntp_timezone) - 1);
+    } else {
+        strncpy(ntp_timezone, tz, sizeof(ntp_timezone) - 1);
+    }
     ntp_timezone[sizeof(ntp_timezone) - 1] = '\0';
     nvs_save_string("ntp_tz", ntp_timezone);
     setenv("TZ", ntp_timezone, 1);
@@ -454,7 +467,7 @@ static void update_info_page(void)
 {
     if (!info_page_active) return;
     
-    char info_buf[256];
+    char info_buf[512];
     const char* ap_status = wifi_bsp_is_ap_active() ? "开启" : "关闭";
     const char* cursor1 = (info_selected == 0) ? "> " : "  ";
     const char* cursor2 = (info_selected == 1) ? "> " : "  ";
@@ -465,11 +478,15 @@ static void update_info_page(void)
     
     snprintf(info_buf, sizeof(info_buf),
              "信息\n\n"
+             "当前版本: %s\n"
+             "最新版本: %s\n\n"
              "NTP: %s\n"
              "%sWiFi: %s\n"
              "%sAP热点: %s\n"
              "%s显示秒: %s\n"
              "%s同步时间",
+             FIRMWARE_VERSION,
+             wifi_bsp_get_latest_version(),
              ntp_status,
              cursor1,
              wifi_bsp_is_connected() ? "已连接" : "未连接",

@@ -3,6 +3,7 @@ idf_component_register(
     "web_server.c"
     REQUIRES 
     esp_http_server
+    esp_https_ota
     wifi_bsp
     INCLUDE_DIRS 
     ".")
