@@ -30,7 +30,7 @@ static lv_obj_t *clock_label = NULL;
 static bool clock_show_seconds = true;
 static bool ntp_synced = false;
 static char ntp_server[64] = "ntp.aliyun.com";
-static char ntp_timezone[32] = "UTC-8";
+static char ntp_timezone[32] = "UTC+8";
 
 // NVS存储函数
 static void nvs_save_string(const char* key, const char* value)
@@ -289,13 +289,17 @@ static void fetch_deepseek_info(void)
     esp_http_client_config_t config = {};
     config.url = "https://api.deepseek.com/user/balance";
     config.event_handler = deepseek_balance_handler;
-    config.timeout_ms = 5000;
+    config.timeout_ms = 10000;
     config.skip_cert_common_name_check = true;
+    config.buffer_size = 1024;
     
-    ESP_LOGI(TAG, "Fetching DeepSeek balance...");
+    ESP_LOGI(TAG, "Fetching DeepSeek balance, key: %s...", deepseek_api_key);
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "Authorization", auth_header);
     esp_http_client_set_header(client, "Accept", "application/json");
+    esp_http_client_set_header(client, "User-Agent", "ESP32");
+    
+    ESP_LOGI(TAG, "Performing HTTP request...");
     esp_err_t err = esp_http_client_perform(client);
     
     if (err != ESP_OK) {
@@ -306,7 +310,8 @@ static void fetch_deepseek_info(void)
     }
     
     int status = esp_http_client_get_status_code(client);
-    ESP_LOGI(TAG, "DeepSeek status: %d", status);
+    int content_length = esp_http_client_get_content_length(client);
+    ESP_LOGI(TAG, "DeepSeek response: status=%d, length=%d", status, content_length);
     esp_http_client_cleanup(client);
     
     if (status != 200) {
