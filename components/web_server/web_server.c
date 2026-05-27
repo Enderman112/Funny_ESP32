@@ -62,37 +62,39 @@ static const char* HTML_HEADER = "<!DOCTYPE html><html><head>"
 static const char* HTML_FOOTER = "<div class='footer'>Funny ESP32 &copy; 2026 | Powered by ESP-IDF</div>"
     "</div></body></html>";
 
+#define WEB_BUF_SIZE 8192
+
 static esp_err_t root_handler(httpd_req_t *req)
 {
-    char *buf = malloc(8192);
+    char *buf = malloc(WEB_BUF_SIZE);
     if (!buf) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
         return ESP_FAIL;
     }
     int len = 0;
     
-    len += snprintf(buf + len, sizeof(buf) - len, "%s", HTML_HEADER);
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, "%s", HTML_HEADER);
     
     // WiFi Status Container
-    len += snprintf(buf + len, sizeof(buf) - len, 
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, 
         "<div class='container'><div class='header'><span class='icon'>&#128246;</span>WiFi 状态</div><div class='body'>"
         "<table class='table'>");
     if (wifi_bsp_is_connected()) {
-        len += snprintf(buf + len, sizeof(buf) - len, 
+        len += snprintf(buf + len, WEB_BUF_SIZE - len, 
             "<tr><th>状态</th><td><span class='badge badge-success'>已连接</span></td></tr>"
             "<tr><th>名称</th><td>%s</td></tr>"
             "<tr><th>IP 地址</th><td>%s</td></tr>",
             wifi_bsp_get_ssid(), wifi_bsp_get_ip());
     } else {
-        len += snprintf(buf + len, sizeof(buf) - len, 
+        len += snprintf(buf + len, WEB_BUF_SIZE - len, 
             "<tr><th>状态</th><td><span class='badge badge-danger'>未连接</span></td></tr>"
             "<tr><th>名称</th><td>%s</td></tr>",
             wifi_bsp_get_ssid());
     }
-    len += snprintf(buf + len, sizeof(buf) - len, "</table></div></div>");
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, "</table></div></div>");
     
     // WiFi Config Container
-    len += snprintf(buf + len, sizeof(buf) - len, 
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, 
         "<div class='container'><div class='header'><span class='icon'>&#128268;</span>WiFi 配置</div><div class='body'>"
         "<form action='/wifi' method='post'>"
         "<div class='form-group'><label>SSID</label><input type='text' name='ssid' placeholder='输入WiFi名称' required></div>"
@@ -101,7 +103,7 @@ static esp_err_t root_handler(httpd_req_t *req)
         "</form></div></div>");
     
     // AP Config Container
-    len += snprintf(buf + len, sizeof(buf) - len, 
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, 
         "<div class='container'><div class='header'><span class='icon'>&#128225;</span>热点配置</div><div class='body'>"
         "<table class='table'><tr><th>热点名称</th><td>Funny_ESP32</td></tr></table>"
         "<form action='/ap' method='post' style='margin-top:12px;'>"
@@ -111,7 +113,7 @@ static esp_err_t root_handler(httpd_req_t *req)
     
     // DeepSeek API Container
     const char* current_key = deepseek_get_api_key();
-    len += snprintf(buf + len, sizeof(buf) - len, 
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, 
         "<div class='container'><div class='header'><span class='icon'>&#129302;</span>DeepSeek API</div><div class='body'>"
         "<form action='/apikey' method='post'>"
         "<div class='form-group'><label>API 密钥</label><input type='password' name='apikey' value='%s' placeholder='sk-...'></div>"
@@ -121,7 +123,7 @@ static esp_err_t root_handler(httpd_req_t *req)
     
     // MiMo Cookie Container
     const char* current_cookie = mimo_get_cookie();
-    len += snprintf(buf + len, sizeof(buf) - len, 
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, 
         "<div class='container'><div class='header'><span class='icon'>&#127850;</span>MiMo Cookie</div><div class='body'>"
         "<form action='/mimo' method='post'>"
         "<div class='form-group'><label>Cookie</label><input type='password' name='cookie' value='%s' placeholder='粘贴Cookie'></div>"
@@ -130,7 +132,7 @@ static esp_err_t root_handler(httpd_req_t *req)
         current_cookie ? current_cookie : "");
     
     // NTP Config Container
-    len += snprintf(buf + len, sizeof(buf) - len, 
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, 
         "<div class='container'><div class='header'><span class='icon'>&#128339;</span>NTP 时间同步</div><div class='body'>"
         "<form action='/ntp' method='post'>"
         "<div class='form-group'><label>NTP 服务器</label><input type='text' name='server' value='%s'></div>"
@@ -139,7 +141,7 @@ static esp_err_t root_handler(httpd_req_t *req)
         "</form></div></div>",
         ntp_get_server(), ntp_get_timezone());
     
-    len += snprintf(buf + len, sizeof(buf) - len, "%s", HTML_FOOTER);
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, "%s", HTML_FOOTER);
     
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_send(req, buf, len);
@@ -150,7 +152,7 @@ static esp_err_t root_handler(httpd_req_t *req)
 static esp_err_t wifi_handler(httpd_req_t *req)
 {
     char buf[256];
-    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    int ret = httpd_req_recv(req, buf, WEB_BUF_SIZE - 1);
     if (ret <= 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
         return ESP_FAIL;
@@ -201,7 +203,7 @@ static esp_err_t wifi_handler(httpd_req_t *req)
 static esp_err_t ap_handler(httpd_req_t *req)
 {
     char buf[256];
-    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    int ret = httpd_req_recv(req, buf, WEB_BUF_SIZE - 1);
     if (ret <= 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
         return ESP_FAIL;
@@ -235,7 +237,7 @@ static esp_err_t ap_handler(httpd_req_t *req)
 static esp_err_t apikey_handler(httpd_req_t *req)
 {
     char buf[256];
-    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    int ret = httpd_req_recv(req, buf, WEB_BUF_SIZE - 1);
     if (ret <= 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
         return ESP_FAIL;
@@ -269,7 +271,7 @@ static esp_err_t apikey_handler(httpd_req_t *req)
 static esp_err_t ntp_handler(httpd_req_t *req)
 {
     char buf[256];
-    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    int ret = httpd_req_recv(req, buf, WEB_BUF_SIZE - 1);
     if (ret <= 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
         return ESP_FAIL;
@@ -321,7 +323,7 @@ static esp_err_t ntp_handler(httpd_req_t *req)
 static esp_err_t mimo_handler(httpd_req_t *req)
 {
     char buf[512];
-    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    int ret = httpd_req_recv(req, buf, WEB_BUF_SIZE - 1);
     if (ret <= 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
         return ESP_FAIL;
