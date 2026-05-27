@@ -73,8 +73,7 @@ static const char* HTML_FOOTER = "<div class='footer'>Funny ESP32 &copy; 2026 | 
 #define WEB_BUF_SIZE 8192
 
 static bool ota_in_progress = false;
-static int ota_progress = 0;
-static char ota_status[64] = "";
+static char ota_status[128] = "";
 static char ota_url[256] = "";
 
 static esp_err_t root_handler(httpd_req_t *req)
