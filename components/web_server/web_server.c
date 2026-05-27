@@ -402,6 +402,7 @@ static void ota_task(void *arg)
     config.url = (char*)arg;
     config.timeout_ms = 30000;
     config.buffer_size = 1024;
+    config.skip_cert_common_name_check = true;
     
     ESP_LOGI(TAG, "OTA starting from: %s", config.url);
     snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在更新...</div>");
