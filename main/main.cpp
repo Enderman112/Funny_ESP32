@@ -30,7 +30,7 @@ static lv_obj_t *clock_label = NULL;
 static bool clock_show_seconds = true;
 static bool ntp_synced = false;
 static char ntp_server[64] = "ntp.aliyun.com";
-static char ntp_timezone[32] = "UTC+8";
+static char ntp_timezone[32] = "UTC-8";
 
 // NVS存储函数
 static void nvs_save_string(const char* key, const char* value)
