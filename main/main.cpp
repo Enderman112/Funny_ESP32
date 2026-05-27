@@ -8,6 +8,8 @@
 #include <esp_timer.h>
 #include <esp_http_client.h>
 #include <esp_sntp.h>
+#include <nvs_flash.h>
+#include <nvs.h>
 
 #include "display_bsp.h"
 #include "lvgl_bsp.h"
@@ -17,6 +19,7 @@
 #include "web_server.h"
 
 static const char *TAG = "HelloWorld";
+static nvs_handle_t nvs_handle;
 
 DisplayPort RlcdPort(RLCD_MOSI_PIN, RLCD_SCK_PIN, RLCD_DC_PIN, RLCD_CS_PIN, RLCD_RST_PIN, LCD_WIDTH, LCD_HEIGHT);
 
@@ -61,6 +64,7 @@ void ntp_set_server(const char* server)
 {
     strncpy(ntp_server, server, sizeof(ntp_server) - 1);
     ntp_server[sizeof(ntp_server) - 1] = '\0';
+    nvs_save_string("ntp_server", ntp_server);
     esp_sntp_stop();
     obtain_time();
 }
@@ -74,6 +78,7 @@ void ntp_set_timezone(const char* tz)
 {
     strncpy(ntp_timezone, tz, sizeof(ntp_timezone) - 1);
     ntp_timezone[sizeof(ntp_timezone) - 1] = '\0';
+    nvs_save_string("ntp_tz", ntp_timezone);
     setenv("TZ", ntp_timezone, 1);
     tzset();
 }
@@ -125,6 +130,32 @@ static void clock_task(void *arg)
             Lvgl_unlock();
         }
         vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+// NVS存储函数
+static void nvs_init(void)
+{
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        nvs_flash_erase();
+        nvs_flash_init();
+    }
+    nvs_open("storage", NVS_READWRITE, &nvs_handle);
+}
+
+static void nvs_save_string(const char* key, const char* value)
+{
+    nvs_set_str(nvs_handle, key, value);
+    nvs_commit(nvs_handle);
+}
+
+static void nvs_load_string(const char* key, char* value, size_t max_len)
+{
+    size_t len = max_len;
+    esp_err_t err = nvs_get_str(nvs_handle, key, value, &len);
+    if (err != ESP_OK) {
+        value[0] = '\0';
     }
 }
 
@@ -271,6 +302,7 @@ void deepseek_set_api_key(const char* key)
 {
     strncpy(deepseek_api_key, key, sizeof(deepseek_api_key) - 1);
     deepseek_api_key[sizeof(deepseek_api_key) - 1] = '\0';
+    nvs_save_string("ds_api_key", deepseek_api_key);
     ESP_LOGI(TAG, "DeepSeek API key updated");
 }
 
@@ -370,6 +402,7 @@ void mimo_set_cookie(const char* cookie)
 {
     strncpy(mimo_cookie, cookie, sizeof(mimo_cookie) - 1);
     mimo_cookie[sizeof(mimo_cookie) - 1] = '\0';
+    nvs_save_string("mimo_cookie", mimo_cookie);
     ESP_LOGI(TAG, "MiMo cookie updated");
 }
 
@@ -515,26 +548,26 @@ static void create_menu_ui(void)
     // Create clock label (left-top corner)
     clock_label = lv_label_create(lv_scr_act());
     lv_label_set_text(clock_label, "--:--:--");
-    lv_obj_set_style_text_font(clock_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(clock_label, &lv_font_montserrat_28, 0);
     lv_obj_align(clock_label, LV_ALIGN_TOP_LEFT, 10, 10);
     
     // Create main label (default page)
     hello_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_label, "Hello World!");
-    lv_obj_set_style_text_font(hello_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(hello_label, &lv_font_simsun_16_cjk, 0);
     lv_obj_align(hello_label, LV_ALIGN_CENTER, 0, 0);
     
     // Create DeepSeek label (left side, hidden by default)
     deepseek_label = lv_label_create(lv_scr_act());
     lv_label_set_text(deepseek_label, "");
-    lv_obj_set_style_text_font(deepseek_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(deepseek_label, &lv_font_simsun_16_cjk, 0);
     lv_obj_align(deepseek_label, LV_ALIGN_LEFT_MID, 10, 0);
     lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo label (right side, hidden by default)
     mimo_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_label, "");
-    lv_obj_set_style_text_font(mimo_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(mimo_label, &lv_font_simsun_16_cjk, 0);
     lv_obj_align(mimo_label, LV_ALIGN_RIGHT_MID, -10, 0);
     lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
     
@@ -552,7 +585,7 @@ static void create_menu_ui(void)
     for (int i = 0; i < menu_count; i++) {
         menu_labels[i] = lv_label_create(menu_panel);
         lv_label_set_text(menu_labels[i], menu_items[i]);
-        lv_obj_set_style_text_font(menu_labels[i], &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(menu_labels[i], &lv_font_simsun_16_cjk, 0);
         lv_obj_set_width(menu_labels[i], 100);
         lv_obj_set_style_pad_all(menu_labels[i], 3, 0);
         
@@ -586,7 +619,8 @@ static void button_task(void *arg)
             }
         }
         
-        if (key_bits & set_bit_button(2)) {  // KEY长按
+        // 只处理长按事件，忽略短按
+        if ((key_bits & set_bit_button(2)) && !(key_bits & set_bit_button(0))) {
             if (!menu_visible && !info_page_active && !deepseek_page_active) {
                 // 主页面：呼出菜单
                 show_menu();
@@ -690,6 +724,15 @@ static void ntp_task(void *arg)
 
 extern "C" void app_main(void)
 {
+    ESP_LOGI(TAG, "Initializing NVS...");
+    nvs_init();
+    
+    // 从NVS加载保存的数据
+    nvs_load_string("ds_api_key", deepseek_api_key, sizeof(deepseek_api_key));
+    nvs_load_string("mimo_cookie", mimo_cookie, sizeof(mimo_cookie));
+    nvs_load_string("ntp_server", ntp_server, sizeof(ntp_server));
+    nvs_load_string("ntp_tz", ntp_timezone, sizeof(ntp_timezone));
+    
     ESP_LOGI(TAG, "Initializing display...");
     RlcdPort.RLCD_Init();
     

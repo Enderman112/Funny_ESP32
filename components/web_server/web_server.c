@@ -113,6 +113,7 @@ static esp_err_t root_handler(httpd_req_t *req)
     
     len += snprintf(buf + len, sizeof(buf) - len, "%s", HTML_FOOTER);
     
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_send(req, buf, len);
     return ESP_OK;
 }
