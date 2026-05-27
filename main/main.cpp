@@ -30,6 +30,22 @@ static bool ntp_synced = false;
 static char ntp_server[64] = "ntp.aliyun.com";
 static char ntp_timezone[32] = "CST-8";
 
+// NVS存储函数
+static void nvs_save_string(const char* key, const char* value)
+{
+    nvs_set_str(my_nvs_handle, key, value);
+    nvs_commit(my_nvs_handle);
+}
+
+static void nvs_load_string(const char* key, char* value, size_t max_len)
+{
+    size_t len = max_len;
+    esp_err_t err = nvs_get_str(my_nvs_handle, key, value, &len);
+    if (err != ESP_OK) {
+        value[0] = '\0';
+    }
+}
+
 static void initialize_sntp(void)
 {
     ESP_LOGI(TAG, "Initializing SNTP, server: %s, tz: %s", ntp_server, ntp_timezone);
@@ -142,21 +158,6 @@ static void nvs_init(void)
         nvs_flash_init();
     }
     nvs_open("storage", NVS_READWRITE, &my_nvs_handle);
-}
-
-static void nvs_save_string(const char* key, const char* value)
-{
-    nvs_set_str(my_nvs_handle, key, value);
-    nvs_commit(my_nvs_handle);
-}
-
-static void nvs_load_string(const char* key, char* value, size_t max_len)
-{
-    size_t len = max_len;
-    esp_err_t err = nvs_get_str(my_nvs_handle, key, value, &len);
-    if (err != ESP_OK) {
-        value[0] = '\0';
-    }
 }
 
 // Menu state

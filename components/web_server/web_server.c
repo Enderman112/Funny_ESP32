@@ -17,98 +17,122 @@ static const char *TAG = "WebServer";
 static const char* HTML_HEADER = "<!DOCTYPE html><html><head>"
     "<meta charset='UTF-8'>"
     "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
-    "<title>Funny ESP32 管理后台</title>"
+    "<title>Funny ESP32 - LuCI</title>"
     "<style>"
-    "body{font-family:Arial,sans-serif;margin:20px;background:#f0f0f0;}"
-    ".card{background:white;padding:20px;margin:10px 0;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);}"
-    "h1{color:#333;}"
-    "input[type=text],input[type=password]{width:100%;padding:10px;margin:5px 0;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;}"
-    "input[type=submit]{background:#4CAF50;color:white;padding:10px 20px;border:none;border-radius:4px;cursor:pointer;width:100%;}"
-    "input[type=submit]:hover{background:#45a049;}"
-    ".status{padding:10px;border-radius:4px;margin:10px 0;}"
-    ".connected{background:#dff0d8;color:#3c763d;}"
-    ".disconnected{background:#f2dede;color:#a94442;}"
-    "</style></head><body>";
+    "*{margin:0;padding:0;box-sizing:border-box;}"
+    "body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f5f5;color:#333;font-size:14px;}"
+    "#header{background:linear-gradient(135deg,#4a90d9,#357abd);color:white;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;}"
+    "#header h1{font-size:20px;font-weight:600;}"
+    "#header .version{font-size:12px;opacity:0.8;}"
+    "#menubar{background:#fff;border-bottom:1px solid #ddd;padding:0 20px;display:flex;}"
+    "#menubar a{display:inline-block;padding:12px 20px;color:#555;text-decoration:none;border-bottom:3px solid transparent;transition:all 0.2s;}"
+    "#menubar a:hover,#menubar a.active{color:#4a90d9;border-bottom-color:#4a90d9;background:#f8f9fa;}"
+    "#content{max-width:960px;margin:20px auto;padding:0 20px;}"
+    ".container{background:white;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.1);margin-bottom:20px;}"
+    ".container .header{background:#f8f9fa;padding:12px 16px;border-bottom:1px solid #e9ecef;font-weight:600;color:#495057;border-radius:4px 4px 0 0;display:flex;align-items:center;}"
+    ".container .header .icon{margin-right:8px;}"
+    ".container .body{padding:16px;}"
+    ".table{width:100%;border-collapse:collapse;}"
+    ".table td,.table th{padding:8px 12px;text-align:left;border-bottom:1px solid #eee;}"
+    ".table th{background:#f8f9fa;color:#495057;font-weight:600;width:140px;}"
+    ".btn{display:inline-block;padding:8px 16px;border:none;border-radius:3px;cursor:pointer;font-size:13px;transition:background 0.2s;}"
+    ".btn-primary{background:#4a90d9;color:white;}"
+    ".btn-primary:hover{background:#357abd;}"
+    "input[type=text],input[type=password]{width:100%;padding:8px 12px;border:1px solid #ced4da;border-radius:3px;font-size:13px;transition:border-color 0.2s;}"
+    "input[type=text]:focus,input[type=password]:focus{outline:none;border-color:#4a90d9;box-shadow:0 0 0 2px rgba(74,144,217,0.2);}"
+    ".alert{padding:10px 14px;border-radius:3px;margin-bottom:16px;}"
+    ".alert-success{background:#d4edda;color:#155724;border:1px solid #c3e6cb;}"
+    ".alert-warning{background:#fff3cd;color:#856404;border:1px solid #ffeeba;}"
+    ".alert-danger{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;}"
+    ".badge{display:inline-block;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:600;}"
+    ".badge-success{background:#28a745;color:white;}"
+    ".badge-danger{background:#dc3545;color:white;}"
+    ".form-group{margin-bottom:14px;}"
+    ".form-group label{display:block;margin-bottom:4px;color:#495057;font-weight:500;}"
+    ".footer{text-align:center;padding:20px;color:#6c757d;font-size:12px;}"
+    "</style></head><body>"
+    "<div id='header'><h1>Funny ESP32</h1><span class='version'>LuCI 风格管理后台</span></div>"
+    "<div id='menubar'>"
+    "<a href='/' class='active'>状态</a>"
+    "<a href='/'>网络</a>"
+    "<a href='/'>系统</a>"
+    "</div>"
+    "<div id='content'>";
 
-static const char* HTML_FOOTER = "</body></html>";
+static const char* HTML_FOOTER = "<div class='footer'>Funny ESP32 &copy; 2026 | Powered by ESP-IDF</div>"
+    "</div></body></html>";
 
 static esp_err_t root_handler(httpd_req_t *req)
 {
-    char buf[2048];
+    char buf[4096];
     int len = 0;
     
     len += snprintf(buf + len, sizeof(buf) - len, "%s", HTML_HEADER);
-    len += snprintf(buf + len, sizeof(buf) - len, "<h1>Funny ESP32 管理后台</h1>");
     
-    // WiFi status
-    len += snprintf(buf + len, sizeof(buf) - len, "<div class='card'><h2>WiFi 状态</h2>");
+    // WiFi Status Container
+    len += snprintf(buf + len, sizeof(buf) - len, 
+        "<div class='container'><div class='header'><span class='icon'>&#128246;</span>WiFi 状态</div><div class='body'>"
+        "<table class='table'>");
     if (wifi_bsp_is_connected()) {
         len += snprintf(buf + len, sizeof(buf) - len, 
-            "<div class='status connected'>已连接</div>"
-            "<p><strong>名称:</strong> %s</p>"
-            "<p><strong>IP:</strong> %s</p>",
+            "<tr><th>状态</th><td><span class='badge badge-success'>已连接</span></td></tr>"
+            "<tr><th>名称</th><td>%s</td></tr>"
+            "<tr><th>IP 地址</th><td>%s</td></tr>",
             wifi_bsp_get_ssid(), wifi_bsp_get_ip());
     } else {
         len += snprintf(buf + len, sizeof(buf) - len, 
-            "<div class='status disconnected'>未连接</div>"
-            "<p><strong>名称:</strong> %s</p>",
+            "<tr><th>状态</th><td><span class='badge badge-danger'>未连接</span></td></tr>"
+            "<tr><th>名称</th><td>%s</td></tr>",
             wifi_bsp_get_ssid());
     }
-    len += snprintf(buf + len, sizeof(buf) - len, "</div>");
+    len += snprintf(buf + len, sizeof(buf) - len, "</table></div></div>");
     
-    // WiFi config form
+    // WiFi Config Container
     len += snprintf(buf + len, sizeof(buf) - len, 
-        "<div class='card'><h2>更换 WiFi</h2>"
+        "<div class='container'><div class='header'><span class='icon'>&#128268;</span>WiFi 配置</div><div class='body'>"
         "<form action='/wifi' method='post'>"
-        "<label>名称:</label>"
-        "<input type='text' name='ssid' required>"
-        "<label>密码:</label>"
-        "<input type='password' name='password' required>"
-        "<input type='submit' value='连接'>"
-        "</form></div>");
+        "<div class='form-group'><label>SSID</label><input type='text' name='ssid' placeholder='输入WiFi名称' required></div>"
+        "<div class='form-group'><label>密码</label><input type='password' name='password' placeholder='输入密码' required></div>"
+        "<button type='submit' class='btn btn-primary'>连接</button>"
+        "</form></div></div>");
     
-    // AP password form
+    // AP Config Container
     len += snprintf(buf + len, sizeof(buf) - len, 
-        "<div class='card'><h2>热点密码</h2>"
-        "<p><strong>热点名称:</strong> Funny_ESP32</p>"
-        "<form action='/ap' method='post'>"
-        "<label>新密码:</label>"
-        "<input type='password' name='password' required>"
-        "<input type='submit' value='修改'>"
-        "</form></div>");
+        "<div class='container'><div class='header'><span class='icon'>&#128225;</span>热点配置</div><div class='body'>"
+        "<table class='table'><tr><th>热点名称</th><td>Funny_ESP32</td></tr></table>"
+        "<form action='/ap' method='post' style='margin-top:12px;'>"
+        "<div class='form-group'><label>新密码</label><input type='password' name='password' placeholder='输入新密码' required></div>"
+        "<button type='submit' class='btn btn-primary'>修改密码</button>"
+        "</form></div></div>");
     
-    // DeepSeek API key form
+    // DeepSeek API Container
     const char* current_key = deepseek_get_api_key();
     len += snprintf(buf + len, sizeof(buf) - len, 
-        "<div class='card'><h2>DeepSeek API</h2>"
+        "<div class='container'><div class='header'><span class='icon'>&#129302;</span>DeepSeek API</div><div class='body'>"
         "<form action='/apikey' method='post'>"
-        "<label>API密钥:</label>"
-        "<input type='password' name='apikey' value='%s'>"
-        "<input type='submit' value='保存'>"
-        "</form></div>",
+        "<div class='form-group'><label>API 密钥</label><input type='password' name='apikey' value='%s' placeholder='sk-...'></div>"
+        "<button type='submit' class='btn btn-primary'>保存</button>"
+        "</form></div></div>",
         current_key ? current_key : "");
     
-    // MiMo Cookie form
+    // MiMo Cookie Container
     const char* current_cookie = mimo_get_cookie();
     len += snprintf(buf + len, sizeof(buf) - len, 
-        "<div class='card'><h2>MiMo Cookie</h2>"
+        "<div class='container'><div class='header'><span class='icon'>&#127850;</span>MiMo Cookie</div><div class='body'>"
         "<form action='/mimo' method='post'>"
-        "<label>Cookie:</label>"
-        "<input type='password' name='cookie' value='%s'>"
-        "<input type='submit' value='保存'>"
-        "</form></div>",
+        "<div class='form-group'><label>Cookie</label><input type='password' name='cookie' value='%s' placeholder='粘贴Cookie'></div>"
+        "<button type='submit' class='btn btn-primary'>保存</button>"
+        "</form></div></div>",
         current_cookie ? current_cookie : "");
     
-    // NTP config form
+    // NTP Config Container
     len += snprintf(buf + len, sizeof(buf) - len, 
-        "<div class='card'><h2>NTP 时间同步</h2>"
+        "<div class='container'><div class='header'><span class='icon'>&#128339;</span>NTP 时间同步</div><div class='body'>"
         "<form action='/ntp' method='post'>"
-        "<label>NTP服务器:</label>"
-        "<input type='text' name='server' value='%s'>"
-        "<label>时区:</label>"
-        "<input type='text' name='timezone' value='%s'>"
-        "<input type='submit' value='保存'>"
-        "</form></div>",
+        "<div class='form-group'><label>NTP 服务器</label><input type='text' name='server' value='%s'></div>"
+        "<div class='form-group'><label>时区</label><input type='text' name='timezone' value='%s'></div>"
+        "<button type='submit' class='btn btn-primary'>保存</button>"
+        "</form></div></div>",
         ntp_get_server(), ntp_get_timezone());
     
     len += snprintf(buf + len, sizeof(buf) - len, "%s", HTML_FOOTER);
