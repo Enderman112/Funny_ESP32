@@ -682,6 +682,12 @@ static void Lvgl_FlushCallback(lv_disp_drv_t *drv, const lv_area_t *area, lv_col
     lv_disp_flush_ready(drv);
 }
 
+static void ntp_task(void *arg)
+{
+    obtain_time();
+    vTaskDelete(NULL);
+}
+
 extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "Initializing display...");
@@ -693,23 +699,21 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "Initializing button...");
     Custom_ButtonInit();
     
-    ESP_LOGI(TAG, "Initializing WiFi...");
-    wifi_bsp_init();
-    
-    ESP_LOGI(TAG, "Initializing Web Server...");
-    web_server_init();
-    
-    ESP_LOGI(TAG, "Initializing NTP...");
-    obtain_time();
-    
     if(Lvgl_lock(-1)) {
         ESP_LOGI(TAG, "Creating Menu UI...");
         create_menu_ui();
         Lvgl_unlock();
     }
     
+    ESP_LOGI(TAG, "Initializing WiFi...");
+    wifi_bsp_init();
+    
+    ESP_LOGI(TAG, "Initializing Web Server...");
+    web_server_init();
+    
     xTaskCreatePinnedToCore(button_task, "button_task", 4 * 1024, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(clock_task, "clock_task", 2 * 1024, NULL, 3, NULL, 1);
+    xTaskCreatePinnedToCore(ntp_task, "ntp_task", 4 * 1024, NULL, 2, NULL, 1);
     
     ESP_LOGI(TAG, "Menu system ready!");
     ESP_LOGI(TAG, "Web admin: http://[IP]");
