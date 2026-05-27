@@ -11,6 +11,7 @@ extern void ntp_set_timezone(const char* tz);
 extern const char* ntp_get_timezone(void);
 extern void clock_set_show_seconds(bool show);
 extern bool clock_get_show_seconds(void);
+extern void ntp_sync_now(void);
 
 static const char *TAG = "WebServer";
 
@@ -138,6 +139,9 @@ static esp_err_t root_handler(httpd_req_t *req)
         "<div class='form-group'><label>NTP 服务器</label><input type='text' name='server' value='%s'></div>"
         "<div class='form-group'><label>时区</label><input type='text' name='timezone' value='%s'></div>"
         "<button type='submit' class='btn btn-primary'>保存</button>"
+        "</form>"
+        "<form action='/sync' method='post' style='margin-top:10px;'>"
+        "<button type='submit' class='btn btn-primary'>立即同步</button>"
         "</form></div></div>",
         ntp_get_server(), ntp_get_timezone());
     
@@ -354,6 +358,18 @@ static esp_err_t mimo_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t sync_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "Manual NTP sync requested");
+    ntp_sync_now();
+    
+    // Redirect back to root
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
 void web_server_init(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -390,6 +406,11 @@ void web_server_init(void)
             .uri = "/mimo",
             .method = HTTP_POST,
             .handler = mimo_handler
+        };
+        httpd_uri_t sync = {
+            .uri = "/sync",
+            .method = HTTP_POST,
+            .handler = sync_handler
         };
         
         httpd_register_uri_handler(server, &root);

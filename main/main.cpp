@@ -35,16 +35,28 @@ static char ntp_timezone[32] = "CST-8";
 // NVS存储函数
 static void nvs_save_string(const char* key, const char* value)
 {
-    nvs_set_str(my_nvs_handle, key, value);
-    nvs_commit(my_nvs_handle);
+    esp_err_t err = nvs_set_str(my_nvs_handle, key, value);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "NVS set failed: %s key=%s", esp_err_to_name(err), key);
+        return;
+    }
+    err = nvs_commit(my_nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "NVS commit failed: %s", esp_err_to_name(err));
+    } else {
+        ESP_LOGI(TAG, "NVS saved: %s", key);
+    }
 }
 
 static void nvs_load_string(const char* key, char* value, size_t max_len)
 {
     size_t len = max_len;
     esp_err_t err = nvs_get_str(my_nvs_handle, key, value, &len);
-    if (err != ESP_OK) {
-        value[0] = '\0';
+    if (err != ESP_OK || strlen(value) == 0) {
+        ESP_LOGW(TAG, "NVS load failed or empty: %s key=%s", esp_err_to_name(err), key);
+        // 不覆盖默认值
+    } else {
+        ESP_LOGI(TAG, "NVS loaded: %s = %s", key, value);
     }
 }
 
@@ -104,6 +116,13 @@ void ntp_set_timezone(const char* tz)
 const char* ntp_get_timezone(void)
 {
     return ntp_timezone;
+}
+
+void ntp_sync_now(void)
+{
+    ntp_synced = false;
+    esp_sntp_stop();
+    obtain_time();
 }
 
 void clock_set_show_seconds(bool show)
@@ -173,8 +192,8 @@ static lv_obj_t *hello_label = NULL;
 
 // Info page state
 static bool info_page_active = false;
-static int info_selected = 0;  // 0: WiFi状态, 1: AP开关, 2: 显示秒
-static const int info_count = 3;
+static int info_selected = 0;  // 0: WiFi状态, 1: AP开关, 2: 显示秒, 3: 同步时间
+static const int info_count = 4;
 
 // DeepSeek page state
 static bool deepseek_page_active = false;
@@ -440,6 +459,7 @@ static void update_info_page(void)
     const char* cursor1 = (info_selected == 0) ? "> " : "  ";
     const char* cursor2 = (info_selected == 1) ? "> " : "  ";
     const char* cursor3 = (info_selected == 2) ? "> " : "  ";
+    const char* cursor4 = (info_selected == 3) ? "> " : "  ";
     const char* ntp_status = ntp_synced ? "已同步" : "同步失败";
     const char* sec_status = clock_show_seconds ? "开" : "关";
     
@@ -448,14 +468,16 @@ static void update_info_page(void)
              "NTP: %s\n"
              "%sWiFi: %s\n"
              "%sAP热点: %s\n"
-             "%s显示秒: %s",
+             "%s显示秒: %s\n"
+             "%s同步时间",
              ntp_status,
              cursor1,
              wifi_bsp_is_connected() ? "已连接" : "未连接",
              cursor2,
              ap_status,
              cursor3,
-             sec_status);
+             sec_status,
+             cursor4);
     
     lv_obj_set_style_text_font(hello_label, &lv_font_MiSansLight_16, 0);
     lv_label_set_text(hello_label, info_buf);
@@ -657,6 +679,12 @@ static void button_task(void *arg)
                             break;
                         case 2:
                             clock_show_seconds = !clock_show_seconds;
+                            update_info_page();
+                            break;
+                        case 3:  // 同步时间
+                            ntp_synced = false;
+                            esp_sntp_stop();
+                            obtain_time();
                             update_info_page();
                             break;
                     }
