@@ -232,7 +232,7 @@ static char deepseek_error[64] = "";
 static char deepseek_api_key[65] = "";
 
 // MiMo state
-static char mimo_cookie[256] = "";
+static char mimo_cookie[512] = "";
 static char mimo_month_used[32] = "未知";
 static char mimo_month_limit[32] = "未知";
 static int mimo_month_percent = 0;

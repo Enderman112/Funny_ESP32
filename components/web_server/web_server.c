@@ -399,28 +399,26 @@ static esp_err_t ntp_handler(httpd_req_t *req)
 
 static esp_err_t mimo_handler(httpd_req_t *req)
 {
-    char buf[512];
-    int ret = httpd_req_recv(req, buf, WEB_BUF_SIZE - 1);
+    char buf[1024];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
     if (ret <= 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
         return ESP_FAIL;
     }
     buf[ret] = '\0';
     
-    char cookie[256] = {0};
+    char cookie[512] = {0};
     
     // Parse form data
     char *cookie_start = strstr(buf, "cookie=");
     if (cookie_start) {
         cookie_start += 7;
-        strncpy(cookie, cookie_start, 255);
+        strncpy(cookie, cookie_start, 511);
         
-        // URL decode (simple version - replace + with space)
-        for (int i = 0; cookie[i]; i++) {
-            if (cookie[i] == '+') cookie[i] = ' ';
-        }
+        // URL decode (保留+号，只解码%xx)
+        url_decode_tz(cookie);
         
-        ESP_LOGI(TAG, "MiMo cookie updated");
+        ESP_LOGI(TAG, "MiMo cookie updated, len=%d", strlen(cookie));
         mimo_set_cookie(cookie);
     }
     
