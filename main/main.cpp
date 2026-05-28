@@ -7,6 +7,7 @@
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <esp_http_client.h>
+#include <esp_crt_bundle.h>
 #include <esp_sntp.h>
 #include <nvs_flash.h>
 #include <nvs.h>
@@ -303,9 +304,9 @@ static void fetch_deepseek_info(void)
     config.url = "https://api.deepseek.com/user/balance";
     config.event_handler = deepseek_balance_handler;
     config.timeout_ms = 15000;
-    config.skip_cert_common_name_check = true;
     config.buffer_size = 1024;
     config.keep_alive_enable = true;
+    config.crt_bundle_attach = esp_crt_bundle_attach;
     
     ESP_LOGI(TAG, "Fetching DeepSeek balance...");
     ESP_LOGI(TAG, "URL: %s", config.url);

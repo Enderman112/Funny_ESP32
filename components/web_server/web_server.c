@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "esp_https_ota.h"
 #include "esp_ota_ops.h"
+#include "esp_crt_bundle.h"
 #include "wifi_bsp.h"
 #include <string.h>
 #include <stdio.h>
@@ -449,11 +450,14 @@ static void ota_task(void *arg)
     ESP_LOGI(TAG, "OTA starting from: %s", url);
     snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在更新...</div>");
     
+    extern const uint8_t server_cert_pem_start[] asm("_binary_ca_cert_pem_start");
+    extern const uint8_t server_cert_pem_end[] asm("_binary_ca_cert_pem_end");
+    
     esp_http_client_config_t config = {};
     config.url = url;
     config.timeout_ms = 30000;
-    config.skip_cert_common_name_check = true;
     config.keep_alive_enable = true;
+    config.crt_bundle_attach = esp_crt_bundle_attach;
     
     esp_https_ota_config_t ota_config = {};
     ota_config.http_config = &config;
@@ -513,9 +517,9 @@ static esp_err_t ota_handler(httpd_req_t *req)
         return ESP_OK;
     }
     
-    // 构建OTA URL
+    // 构建OTA URL (使用HTTP避免证书问题)
     snprintf(ota_url, sizeof(ota_url), 
-        "https://luoyun.eu.org/firmware/FunnyEsp32.bin");
+        "http://luoyun.eu.org/firmware/FunnyEsp32.bin");
     
     ota_in_progress = true;
     snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>开始更新...</div>");
