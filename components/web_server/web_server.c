@@ -452,7 +452,7 @@ static void ota_task(void *arg)
     
     esp_http_client_config_t config = {};
     config.url = url;
-    config.timeout_ms = 30000;
+    config.timeout_ms = 120000;
     config.keep_alive_enable = true;
     config.crt_bundle_attach = esp_crt_bundle_attach;
     
