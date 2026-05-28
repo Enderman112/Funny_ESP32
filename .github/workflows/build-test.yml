@@ -1,0 +1,35 @@
+name: Build Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+
+    - name: Download latest certificate bundle
+      run: |
+        curl -o main/cacert.pem https://curl.se/ca/cacert.pem
+
+    - name: esp-idf build
+      uses: espressif/esp-idf-ci-action@v1
+      with:
+        esp_idf_version: v6.0.1
+        target: esp32s3
+        path: '.'
+        extra_docker_args: -e FIRMWARE_VERSION=dev
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: esp32s3-firmware
+        path: |
+          build/screen.bin
+          build/bootloader/bootloader.bin
+          build/partition_table/partition-table.bin
