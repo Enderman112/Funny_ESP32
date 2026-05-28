@@ -42,6 +42,11 @@ jobs:
       with:
         submodules: 'recursive'
 
+    - name: Download latest certificate bundle
+      run: |
+        curl -o main/cacert.pem https://curl.se/ca/cacert.pem
+        echo "Certificate bundle downloaded"
+
     - name: esp-idf build
       uses: espressif/esp-idf-ci-action@v1
       with:
