@@ -514,9 +514,9 @@ static esp_err_t ota_handler(httpd_req_t *req)
         return ESP_OK;
     }
     
-    // 构建OTA URL (使用HTTP避免证书问题)
+    // 构建OTA URL (使用自定义证书包)
     snprintf(ota_url, sizeof(ota_url), 
-        "http://luoyun.eu.org/firmware/FunnyEsp32.bin");
+        "https://luoyun.eu.org/firmware/FunnyEsp32.bin");
     
     ota_in_progress = true;
     snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>开始更新...</div>");
