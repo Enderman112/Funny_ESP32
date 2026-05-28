@@ -308,10 +308,10 @@ static void fetch_deepseek_info(void)
     hints.ai_socktype = SOCK_STREAM;
     
     ESP_LOGI(TAG, "Resolving api.deepseek.com...");
-    int err = getaddrinfo("api.deepseek.com", "443", &hints, &result);
-    if (err != 0 || result == NULL) {
-        snprintf(deepseek_error, sizeof(deepseek_error), "DNS解析失败: %d", err);
-        ESP_LOGE(TAG, "DNS resolution failed: %d", err);
+    int dns_err = getaddrinfo("api.deepseek.com", "443", &hints, &result);
+    if (dns_err != 0 || result == NULL) {
+        snprintf(deepseek_error, sizeof(deepseek_error), "DNS解析失败: %d", dns_err);
+        ESP_LOGE(TAG, "DNS resolution failed: %d", dns_err);
         return;
     }
     

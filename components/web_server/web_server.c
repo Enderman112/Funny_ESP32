@@ -450,9 +450,6 @@ static void ota_task(void *arg)
     ESP_LOGI(TAG, "OTA starting from: %s", url);
     snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在更新...</div>");
     
-    extern const uint8_t server_cert_pem_start[] asm("_binary_ca_cert_pem_start");
-    extern const uint8_t server_cert_pem_end[] asm("_binary_ca_cert_pem_end");
-    
     esp_http_client_config_t config = {};
     config.url = url;
     config.timeout_ms = 30000;
