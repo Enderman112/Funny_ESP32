@@ -64,6 +64,13 @@ static void fetch_latest_version(void)
     esp_http_client_cleanup(client);
 }
 
+static void fetch_version_task(void *arg)
+{
+    vTaskDelay(pdMS_TO_TICKS(2000)); // 等待网络稳定
+    fetch_latest_version();
+    vTaskDelete(NULL);
+}
+
 static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     if (event_id == WIFI_EVENT_STA_START) {
@@ -87,8 +94,8 @@ static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_
                 (uint8_t)(dns_info.ip.u_addr.ip4.addr >> 16),
                 (uint8_t)(dns_info.ip.u_addr.ip4.addr >> 24));
         
-        // Fetch latest version from GitHub
-        fetch_latest_version();
+        // 在单独任务中获取版本，避免栈溢出
+        xTaskCreate(fetch_version_task, "fetch_ver", 4096, NULL, 2, NULL);
     } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
         ESP_LOGI(TAG, "Disconnected");
         is_connected = false;
