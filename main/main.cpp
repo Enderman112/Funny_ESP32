@@ -469,6 +469,7 @@ static void fetch_mimo_usage(void)
     config.timeout_ms = 5000;
     config.crt_bundle_attach = esp_crt_bundle_attach;
     config.buffer_size = 2048;
+    config.disable_auto_redirect = true;
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "Cookie", mimo_cookie);
