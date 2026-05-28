@@ -11,6 +11,8 @@
 #include <esp_sntp.h>
 #include <nvs_flash.h>
 #include <nvs.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
 #include "display_bsp.h"
 #include "lvgl_bsp.h"
@@ -298,6 +300,26 @@ static void fetch_deepseek_info(void)
     
     char auth_header[80];
     snprintf(auth_header, sizeof(auth_header), "Bearer %s", deepseek_api_key);
+    
+    // 先测试DNS解析
+    struct addrinfo hints = {};
+    struct addrinfo *result = NULL;
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    
+    ESP_LOGI(TAG, "Resolving api.deepseek.com...");
+    int err = getaddrinfo("api.deepseek.com", "443", &hints, &result);
+    if (err != 0 || result == NULL) {
+        snprintf(deepseek_error, sizeof(deepseek_error), "DNS解析失败: %d", err);
+        ESP_LOGE(TAG, "DNS resolution failed: %d", err);
+        return;
+    }
+    
+    char ip_str[16];
+    struct sockaddr_in *addr = (struct sockaddr_in *)result->ai_addr;
+    inet_ntop(AF_INET, &addr->sin_addr, ip_str, sizeof(ip_str));
+    ESP_LOGI(TAG, "Resolved IP: %s", ip_str);
+    freeaddrinfo(result);
     
     // 查询余额
     esp_http_client_config_t config = {};
