@@ -446,57 +446,58 @@ static void ota_task(void *arg)
 {
     char *url = (char*)arg;
     
-    // 先获取重定向后的真实URL
-    esp_http_client_config_t get_config = {};
-    get_config.url = url;
-    get_config.timeout_ms = 10000;
-    get_config.skip_cert_common_name_check = true;
-    get_config.method = HTTP_METHOD_HEAD;
+    ESP_LOGI(TAG, "OTA starting from: %s", url);
+    snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在更新...</div>");
     
-    ESP_LOGI(TAG, "OTA: checking redirect from: %s", url);
+    esp_http_client_config_t config = {};
+    config.url = url;
+    config.timeout_ms = 30000;
+    config.skip_cert_common_name_check = true;
+    config.keep_alive_enable = true;
     
-    esp_http_client_handle_t client = esp_http_client_init(&get_config);
-    esp_err_t err = esp_http_client_perform(client);
+    esp_https_ota_config_t ota_config = {};
+    ota_config.http_config = &config;
+    
+    esp_https_ota_handle_t ota_handle = NULL;
+    esp_err_t err = esp_https_ota_begin(&ota_config, &ota_handle);
     
     if (err != ESP_OK) {
-        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>无法访问更新服务器</div>");
-        ESP_LOGE(TAG, "OTA redirect check failed: %s", esp_err_to_name(err));
-        esp_http_client_cleanup(client);
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>开始更新失败: %s</div>", esp_err_to_name(err));
+        ESP_LOGE(TAG, "OTA begin failed: %s", esp_err_to_name(err));
         ota_in_progress = false;
         vTaskDelete(NULL);
         return;
     }
     
-    // 获取最终URL（处理重定向）
-    char final_url[512] = {0};
-    esp_http_client_get_url(client, final_url, sizeof(final_url));
-    int status = esp_http_client_get_status_code(client);
-    esp_http_client_cleanup(client);
+    while (1) {
+        err = esp_https_ota_perform(ota_handle);
+        if (err == ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
+            continue;
+        } else if (err == ESP_OK) {
+            break;
+        } else {
+            snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>更新失败: %s</div>", esp_err_to_name(err));
+            ESP_LOGE(TAG, "OTA perform failed: %s", esp_err_to_name(err));
+            esp_https_ota_abort(ota_handle);
+            ota_in_progress = false;
+            vTaskDelete(NULL);
+            return;
+        }
+    }
     
-    ESP_LOGI(TAG, "OTA: status=%d, final URL: %s", status, final_url);
-    
-    // 使用最终URL进行OTA
-    esp_http_client_config_t http_config = {};
-    http_config.url = final_url;
-    http_config.timeout_ms = 30000;
-    http_config.buffer_size = 1024;
-    http_config.skip_cert_common_name_check = true;
-    
-    esp_https_ota_config_t ota_config = {};
-    ota_config.http_config = &http_config;
-    
-    snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在更新...</div>");
-    ESP_LOGI(TAG, "OTA starting from: %s", final_url);
-    
-    esp_err_t ret = esp_https_ota(&ota_config);
-    if (ret == ESP_OK) {
-        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>更新成功，重启中...</div>");
-        ESP_LOGI(TAG, "OTA success, restarting...");
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        esp_restart();
+    if (esp_https_ota_is_complete_data_received(ota_handle)) {
+        err = esp_https_ota_finish(ota_handle);
+        if (err == ESP_OK) {
+            snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>更新成功，重启中...</div>");
+            ESP_LOGI(TAG, "OTA success, restarting...");
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            esp_restart();
+        } else {
+            snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>完成更新失败: %s</div>", esp_err_to_name(err));
+        }
     } else {
-        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>更新失败: %s</div>", esp_err_to_name(ret));
-        ESP_LOGE(TAG, "OTA failed: %s", esp_err_to_name(ret));
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>数据接收不完整</div>");
+        esp_https_ota_abort(ota_handle);
     }
     
     ota_in_progress = false;

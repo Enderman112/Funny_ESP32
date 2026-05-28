@@ -302,22 +302,32 @@ static void fetch_deepseek_info(void)
     esp_http_client_config_t config = {};
     config.url = "https://api.deepseek.com/user/balance";
     config.event_handler = deepseek_balance_handler;
-    config.timeout_ms = 10000;
+    config.timeout_ms = 15000;
     config.skip_cert_common_name_check = true;
     config.buffer_size = 1024;
+    config.keep_alive_enable = true;
     
-    ESP_LOGI(TAG, "Fetching DeepSeek balance, key: %s...", deepseek_api_key);
+    ESP_LOGI(TAG, "Fetching DeepSeek balance...");
+    ESP_LOGI(TAG, "URL: %s", config.url);
+    ESP_LOGI(TAG, "Key: %s...", deepseek_api_key);
+    
     esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (client == NULL) {
+        snprintf(deepseek_error, sizeof(deepseek_error), "初始化HTTP客户端失败");
+        ESP_LOGE(TAG, "Failed to init HTTP client");
+        return;
+    }
+    
     esp_http_client_set_header(client, "Authorization", auth_header);
     esp_http_client_set_header(client, "Accept", "application/json");
-    esp_http_client_set_header(client, "User-Agent", "ESP32");
+    esp_http_client_set_header(client, "User-Agent", "ESP32/1.0");
     
     ESP_LOGI(TAG, "Performing HTTP request...");
     esp_err_t err = esp_http_client_perform(client);
     
     if (err != ESP_OK) {
         snprintf(deepseek_error, sizeof(deepseek_error), "请求失败: %s", esp_err_to_name(err));
-        ESP_LOGE(TAG, "DeepSeek request failed: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "DeepSeek request failed: %s (0x%x)", esp_err_to_name(err), err);
         esp_http_client_cleanup(client);
         return;
     }
