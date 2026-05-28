@@ -407,13 +407,13 @@ static esp_err_t mimo_handler(httpd_req_t *req)
     }
     buf[ret] = '\0';
     
-    char cookie[512] = {0};
+    char cookie[640] = {0};
     
     // Parse form data
     char *cookie_start = strstr(buf, "cookie=");
     if (cookie_start) {
         cookie_start += 7;
-        strncpy(cookie, cookie_start, 511);
+        strncpy(cookie, cookie_start, 639);
         
         // URL decode (保留+号，只解码%xx)
         url_decode_tz(cookie);
