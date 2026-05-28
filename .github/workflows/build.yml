@@ -1,0 +1,97 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.generate.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate tag
+        id: generate
+        run: |
+          DATE=$(date +'%Y%m%d')
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "tag=v${DATE}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ steps.generate.outputs.tag }}
+          git push origin ${{ steps.generate.outputs.tag }}
+
+  build:
+    needs: generate-tag
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+
+    - name: Download latest certificate bundle
+      run: |
+        curl -o main/cacert.pem https://curl.se/ca/cacert.pem
+        echo "Certificate bundle downloaded"
+
+    - name: esp-idf build
+      uses: espressif/esp-idf-ci-action@v1
+      with:
+        esp_idf_version: v6.0.1
+        target: esp32s3
+        path: '.'
+        extra_docker_args: -e FIRMWARE_VERSION=${{ needs.generate-tag.outputs.tag }}
+
+    - name: Collect artifacts
+      run: |
+        mkdir -p release
+        cp build/screen.bin release/
+        cp build/bootloader/bootloader.bin release/
+        cp build/partition_table/partition-table.bin release/
+        cp build/flasher_args.json release/
+        cp build/flash_args release/
+        pip install esptool
+        cd build && esptool.py --chip esp32s3 merge_bin -o ../release/FunnyEsp32.bin @flash_args
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: esp32s3-firmware
+        path: release/
+
+  release:
+    needs: [generate-tag, build]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: esp32s3-firmware
+        path: release/
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ needs.generate-tag.outputs.tag }}
+        name: Release ${{ needs.generate-tag.outputs.tag }}
+        generate_release_notes: true
+        files: |
+          release/FunnyEsp32.bin
+          release/screen.bin
+          release/bootloader.bin
+          release/partition-table.bin
+          release/flasher_args.json
+          release/flash_args
