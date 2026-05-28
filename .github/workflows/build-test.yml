@@ -25,11 +25,17 @@ jobs:
         path: '.'
         extra_docker_args: -e FIRMWARE_VERSION=dev
 
+    - name: Merge firmware
+      run: |
+        pip install esptool
+        cd build && esptool.py --chip esp32s3 merge_bin -o ../FunnyEsp32.bin @flash_args
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: esp32s3-firmware
         path: |
+          FunnyEsp32.bin
           build/screen.bin
           build/bootloader/bootloader.bin
           build/partition_table/partition-table.bin
