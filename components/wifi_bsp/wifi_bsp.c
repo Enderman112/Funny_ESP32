@@ -4,6 +4,7 @@
 #include "nvs_flash.h"
 #include "esp_log.h"
 #include "esp_http_client.h"
+#include "esp_crt_bundle.h"
 #include "esp_netif.h"
 #include <stdio.h>
 #include <string.h>
@@ -49,6 +50,7 @@ static void fetch_latest_version(void)
         .url = "https://api.github.com/repos/Enderman112/Funny_ESP32/releases/latest",
         .event_handler = http_event_handler,
         .timeout_ms = 5000,
+        .crt_bundle_attach = esp_crt_bundle_attach,
     };
     
     esp_http_client_handle_t client = esp_http_client_init(&config);

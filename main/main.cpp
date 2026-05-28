@@ -241,6 +241,7 @@ static char mimo_error[64] = "";
 // UI labels for API page
 static lv_obj_t *deepseek_label = NULL;
 static lv_obj_t *mimo_label = NULL;
+static lv_obj_t *ota_btn_label = NULL;
 
 static esp_err_t deepseek_balance_handler(esp_http_client_event_t *evt)
 {
@@ -365,9 +366,9 @@ static void fetch_deepseek_info(void)
         return;
     }
     
-    // 查询用量
-    config.url = "https://api.deepseek.com/user/usage";
-    config.event_handler = deepseek_usage_handler;
+    // 查询用量（该接口暂不可用）
+    // config.url = "https://api.deepseek.com/user/usage";
+    // config.event_handler = deepseek_usage_handler;
     
     client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "Authorization", auth_header);
@@ -564,7 +565,7 @@ static void update_deepseek_page(void)
     if (strlen(deepseek_error) > 0) {
         snprintf(ds_buf, sizeof(ds_buf), "DeepSeek\n\n错误: %s", deepseek_error);
     } else {
-        snprintf(ds_buf, sizeof(ds_buf), "DeepSeek\n\n余额: %s\nToken: %s", deepseek_balance, deepseek_usage);
+        snprintf(ds_buf, sizeof(ds_buf), "DeepSeek\n\n余额: %s\nToken: 暂不支持", deepseek_balance);
     }
     if (deepseek_label) lv_label_set_text(deepseek_label, ds_buf);
     
@@ -597,6 +598,7 @@ static void execute_menu_item(void)
                 lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_set_style_text_font(hello_label, &lv_font_montserrat_28, 0);
                 lv_label_set_text(hello_label, "Hello World!");
                 break;
@@ -606,6 +608,7 @@ static void execute_menu_item(void)
                 lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
                 info_selected = 0;
                 update_info_page();
                 break;
@@ -615,6 +618,7 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
                 fetch_deepseek_info();
                 fetch_mimo_usage();
                 update_deepseek_page();
@@ -669,6 +673,13 @@ static void create_menu_ui(void)
     lv_obj_set_style_text_font(mimo_label, &lv_font_MiSansLight_16, 0);
     lv_obj_align(mimo_label, LV_ALIGN_RIGHT_MID, -10, 0);
     lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
+    
+    // Create OTA button label (bottom center, hidden by default)
+    ota_btn_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(ota_btn_label, "[BOOT] 刷新数据");
+    lv_obj_set_style_text_font(ota_btn_label, &lv_font_MiSansLight_16, 0);
+    lv_obj_align(ota_btn_label, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create menu panel (right-top corner)
     menu_panel = lv_obj_create(lv_scr_act());
