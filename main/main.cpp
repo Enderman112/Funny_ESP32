@@ -475,9 +475,11 @@ static void fetch_mimo_usage(void)
     esp_err_t err = esp_http_client_perform(client);
     
     if (err != ESP_OK) {
-        snprintf(mimo_error, sizeof(mimo_error), "请求失败");
+        snprintf(mimo_error, sizeof(mimo_error), "请求失败: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "MiMo request failed: %s", esp_err_to_name(err));
     } else {
         int status = esp_http_client_get_status_code(client);
+        ESP_LOGI(TAG, "MiMo response status: %d", status);
         if (status == 401) {
             snprintf(mimo_error, sizeof(mimo_error), "Cookie已过期");
         } else if (status != 200) {
