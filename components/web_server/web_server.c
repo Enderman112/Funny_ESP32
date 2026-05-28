@@ -516,7 +516,7 @@ static esp_err_t ota_handler(httpd_req_t *req)
     
     // 构建OTA URL (GitHub releases)
     snprintf(ota_url, sizeof(ota_url), 
-        "https://github.com/Enderman112/Funny_ESP32/releases/latest/download/FunnyEsp32.bin");
+        "https://luoyun.eu.org/firmware/FunnyEsp32.bin");
     
     ota_in_progress = true;
     snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>开始更新...</div>");
