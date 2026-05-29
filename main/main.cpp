@@ -7,7 +7,9 @@
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <esp_http_client.h>
+#include <esp_https_ota.h>
 #include <esp_crt_bundle.h>
+#include <esp_tls.h>
 #include <esp_sntp.h>
 #include <nvs_flash.h>
 #include <nvs.h>
@@ -463,35 +465,98 @@ static void fetch_mimo_usage(void)
         return;
     }
     
-    esp_http_client_config_t config = {};
-    config.url = "https://platform.xiaomimimo.com/api/v1/tokenPlan/usage";
-    config.event_handler = mimo_usage_handler;
-    config.timeout_ms = 15000;
-    config.crt_bundle_attach = esp_crt_bundle_attach;
-    config.buffer_size = 4096;
-    config.buffer_size_tx = 1024;
+    // 使用esp_tls直接发送HTTP请求，绕过HTTP客户端的认证解析
+    struct esp_tls *tls = NULL;
+    esp_tls_cfg_t cfg = {};
+    cfg.crt_bundle_attach = esp_crt_bundle_attach;
     
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    esp_http_client_set_header(client, "Cookie", mimo_cookie);
-    esp_http_client_set_header(client, "Accept", "application/json");
-    esp_err_t err = esp_http_client_perform(client);
-    
-    if (err != ESP_OK) {
-        snprintf(mimo_error, sizeof(mimo_error), "请求失败: %s", esp_err_to_name(err));
-        ESP_LOGE(TAG, "MiMo request failed: %s", esp_err_to_name(err));
-    } else {
-        int status = esp_http_client_get_status_code(client);
-        ESP_LOGI(TAG, "MiMo response status: %d", status);
-        if (status == 401) {
-            snprintf(mimo_error, sizeof(mimo_error), "Cookie已过期");
-        } else if (status != 200) {
-            snprintf(mimo_error, sizeof(mimo_error), "HTTP错误: %d", status);
-        } else {
-            strcpy(mimo_error, "");
-        }
+    tls = esp_tls_conn_http_new("https://platform.xiaomimimo.com/api/v1/tokenPlan/usage", &cfg);
+    if (tls == NULL) {
+        snprintf(mimo_error, sizeof(mimo_error), "连接失败");
+        ESP_LOGE(TAG, "MiMo TLS connection failed");
+        return;
     }
     
-    esp_http_client_cleanup(client);
+    // 构建HTTP请求
+    char request[1024];
+    snprintf(request, sizeof(request),
+        "GET /api/v1/tokenPlan/usage HTTP/1.1\r\n"
+        "Host: platform.xiaomimimo.com\r\n"
+        "Cookie: %s\r\n"
+        "Accept: application/json\r\n"
+        "Connection: close\r\n"
+        "\r\n",
+        mimo_cookie);
+    
+    int written = esp_tls_conn_write(tls, request, strlen(request));
+    if (written < 0) {
+        snprintf(mimo_error, sizeof(mimo_error), "发送请求失败");
+        esp_tls_conn_delete(tls);
+        return;
+    }
+    
+    // 读取响应
+    char response[2048];
+    int total_read = 0;
+    while (total_read < sizeof(response) - 1) {
+        int bytes_read = esp_tls_conn_read(tls, response + total_read, sizeof(response) - total_read - 1);
+        if (bytes_read <= 0) break;
+        total_read += bytes_read;
+    }
+    response[total_read] = '\0';
+    esp_tls_conn_delete(tls);
+    
+    // 解析HTTP状态码
+    int status = 0;
+    if (sscanf(response, "HTTP/%*s %d", &status) == 1) {
+        ESP_LOGI(TAG, "MiMo response status: %d", status);
+        if (status == 200) {
+            // 解析JSON
+            char *body = strstr(response, "\r\n\r\n");
+            if (body) {
+                body += 4;
+                // 解析percent
+                char *percent_start = strstr(body, "\"percent\":");
+                if (percent_start) {
+                    percent_start += 10;
+                    mimo_month_percent = atoi(percent_start);
+                }
+                // 解析month_total_token used
+                char *used_start = strstr(body, "\"name\":\"month_total_token\"");
+                if (used_start) {
+                    char *u = strstr(used_start, "\"used\":");
+                    if (u) {
+                        u += 7;
+                        char *u_end = strchr(u, ',');
+                        if (u_end) {
+                            int len = u_end - u;
+                            if (len > 31) len = 31;
+                            strncpy(mimo_month_used, u, len);
+                            mimo_month_used[len] = '\0';
+                        }
+                    }
+                    char *l = strstr(used_start, "\"limit\":");
+                    if (l) {
+                        l += 8;
+                        char *l_end = strchr(l, ',');
+                        if (l_end) {
+                            int len = l_end - l;
+                            if (len > 31) len = 31;
+                            strncpy(mimo_month_limit, l, len);
+                            mimo_month_limit[len] = '\0';
+                        }
+                    }
+                }
+                strcpy(mimo_error, "");
+            }
+        } else if (status == 401) {
+            snprintf(mimo_error, sizeof(mimo_error), "Cookie已过期");
+        } else {
+            snprintf(mimo_error, sizeof(mimo_error), "HTTP错误: %d", status);
+        }
+    } else {
+        snprintf(mimo_error, sizeof(mimo_error), "解析响应失败");
+    }
 }
 
 void mimo_set_cookie(const char* cookie)
