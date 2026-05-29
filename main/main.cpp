@@ -420,26 +420,23 @@ static esp_err_t mimo_usage_handler(esp_http_client_event_t *evt)
     switch (evt->event_id) {
         case HTTP_EVENT_ON_DATA:
             if (evt->data_len > 0 && evt->data_len < 1024) {
-                // Parse usage percent (not monthUsage)
-                char *usage_start = strstr((char*)evt->data, "\"usage\":{\"percent\":");
-                if (usage_start) {
-                    char *percent_start = strstr(usage_start, "\"percent\":");
-                    if (percent_start) {
-                    percent_start += 25;
-                    char *percent_end = strchr(percent_start, ',');
-                    if (percent_end) {
-                        char buf[8] = {0};
-                        int len = percent_end - percent_start;
-                        if (len > 7) len = 7;
-                        strncpy(buf, percent_start, len);
-                        mimo_month_percent = atoi(buf);
+                char *data = (char*)evt->data;
+                
+                // Parse usage percent
+                char *usage_str = strstr(data, "\"usage\":");
+                if (usage_str) {
+                    char *pct = strstr(usage_str, "\"percent\":");
+                    if (pct) {
+                        pct += 10;
+                        float percent = atof(pct);
+                        mimo_month_percent = (int)(percent * 100);
                     }
                 }
                 
-                // Parse month_total_token used
-                char *used_start = strstr((char*)evt->data, "\"name\":\"month_total_token\"");
-                if (used_start) {
-                    char *u = strstr(used_start, "\"used\":");
+                // Parse month_total_token used/limit
+                char *month_str = strstr(data, "\"month_total_token\"");
+                if (month_str) {
+                    char *u = strstr(month_str, "\"used\":");
                     if (u) {
                         u += 7;
                         char *u_end = strchr(u, ',');
@@ -450,7 +447,7 @@ static esp_err_t mimo_usage_handler(esp_http_client_event_t *evt)
                             mimo_month_used[len] = '\0';
                         }
                     }
-                    char *l = strstr(used_start, "\"limit\":");
+                    char *l = strstr(month_str, "\"limit\":");
                     if (l) {
                         l += 8;
                         char *l_end = strchr(l, ',');
