@@ -676,7 +676,7 @@ static esp_err_t upload_handler(httpd_req_t *req)
     
     size_t total = 0;
     while (total < buf_size) {
-        int ret = httpd_req_recv(req, full_buf + total, buf_size - total);
+        int ret = httpd_req_recv(req, (char*)(full_buf + total), buf_size - total);
         if (ret <= 0) break;
         total += ret;
     }
