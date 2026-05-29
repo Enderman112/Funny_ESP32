@@ -755,20 +755,20 @@ static void create_menu_ui(void)
     deepseek_label = lv_label_create(lv_scr_act());
     lv_label_set_text(deepseek_label, "");
     lv_obj_set_style_text_font(deepseek_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(deepseek_label, LV_ALIGN_LEFT_MID, 10, 0);
+    lv_obj_align(deepseek_label, LV_ALIGN_TOP_LEFT, 10, 40);
     lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo label (right side, hidden by default - Chinese)
     mimo_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_label, "");
     lv_obj_set_style_text_font(mimo_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_label, LV_ALIGN_TOP_MID, 80, 40);
+    lv_obj_align(mimo_label, LV_ALIGN_TOP_RIGHT, -10, 40);
     lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo progress bar
     mimo_bar = lv_bar_create(lv_scr_act());
     lv_obj_set_size(mimo_bar, 120, 15);
-    lv_obj_align(mimo_bar, LV_ALIGN_TOP_MID, 80, 80);
+    lv_obj_align(mimo_bar, LV_ALIGN_TOP_RIGHT, -10, 80);
     lv_bar_set_range(mimo_bar, 0, 100);
     lv_bar_set_value(mimo_bar, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0xDDDDDD), 0);
@@ -779,7 +779,7 @@ static void create_menu_ui(void)
     mimo_bar_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_bar_label, "0%");
     lv_obj_set_style_text_font(mimo_bar_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar_label, LV_ALIGN_TOP_MID, 80, 100);
+    lv_obj_align(mimo_bar_label, LV_ALIGN_TOP_RIGHT, -10, 100);
     lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create OTA button label (bottom center, hidden by default)
@@ -967,7 +967,7 @@ extern "C" void app_main(void)
     xTaskCreatePinnedToCore(button_task, "button_task", 8 * 1024, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(clock_task, "clock_task", 2 * 1024, NULL, 3, NULL, 1);
     xTaskCreatePinnedToCore(ntp_task, "ntp_task", 4 * 1024, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(api_refresh_task, "api_refresh", 4 * 1024, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(api_refresh_task, "api_refresh", 8 * 1024, NULL, 2, NULL, 1);
     
     ESP_LOGI(TAG, "Menu system ready!");
     ESP_LOGI(TAG, "Web admin: http://[IP]");
