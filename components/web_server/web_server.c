@@ -571,23 +571,50 @@ static esp_err_t ota_handler(httpd_req_t *req)
 }
 
 // ===== 本地OTA任务 =====
+static uint8_t *ota_firmware_buf = NULL;
+static size_t ota_firmware_size = 0;
+
 static void local_ota_task(void *arg)
 {
-    const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
-    if (!update_partition) {
-        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>找不到OTA分区</div>");
+    if (ota_firmware_buf == NULL || ota_firmware_size == 0) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>固件数据为空</div>");
         ota_in_progress = false;
+        free(ota_firmware_buf);
+        ota_firmware_buf = NULL;
         vTaskDelete(NULL);
         return;
     }
     
-    ESP_LOGI(TAG, "Writing to partition: %s at offset 0x%lx", update_partition->label, update_partition->address);
+    const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
+    if (!update_partition) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>找不到OTA分区</div>");
+        ota_in_progress = false;
+        free(ota_firmware_buf);
+        ota_firmware_buf = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
+    
+    ESP_LOGI(TAG, "Local OTA: partition=%s, size=%d", update_partition->label, ota_firmware_size);
     
     esp_ota_handle_t update_handle = 0;
     esp_err_t err = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
     if (err != ESP_OK) {
         snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>OTA开始失败</div>");
         ota_in_progress = false;
+        free(ota_firmware_buf);
+        ota_firmware_buf = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
+    
+    err = esp_ota_write(update_handle, ota_firmware_buf, ota_firmware_size);
+    if (err != ESP_OK) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>写入失败</div>");
+        esp_ota_abort(update_handle);
+        ota_in_progress = false;
+        free(ota_firmware_buf);
+        ota_firmware_buf = NULL;
         vTaskDelete(NULL);
         return;
     }
@@ -596,6 +623,8 @@ static void local_ota_task(void *arg)
     if (err != ESP_OK) {
         snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>OTA验证失败</div>");
         ota_in_progress = false;
+        free(ota_firmware_buf);
+        ota_firmware_buf = NULL;
         vTaskDelete(NULL);
         return;
     }
@@ -604,19 +633,21 @@ static void local_ota_task(void *arg)
     if (err != ESP_OK) {
         snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>设置启动分区失败</div>");
         ota_in_progress = false;
+        free(ota_firmware_buf);
+        ota_firmware_buf = NULL;
         vTaskDelete(NULL);
         return;
     }
     
     snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>更新成功，重启中...</div>");
-    ESP_LOGI(TAG, "Local OTA success, restarting...");
+    ESP_LOGI(TAG, "Local OTA success! Size: %d bytes", ota_firmware_size);
+    
+    free(ota_firmware_buf);
+    ota_firmware_buf = NULL;
+    
     vTaskDelay(pdMS_TO_TICKS(1000));
     esp_restart();
 }
-
-// OTA句柄
-static esp_ota_handle_t ota_update_handle = 0;
-static const esp_partition_t *ota_update_partition = NULL;
 
 // ===== 处理本地OTA上传 =====
 static esp_err_t upload_handler(httpd_req_t *req)
@@ -631,10 +662,11 @@ static esp_err_t upload_handler(httpd_req_t *req)
     ota_in_progress = true;
     snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在接收固件...</div>");
     
-    // 获取OTA分区
-    ota_update_partition = esp_ota_get_next_update_partition(NULL);
-    if (!ota_update_partition) {
-        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>找不到OTA分区</div>");
+    // 分配内存存储固件
+    ota_firmware_size = req->content_len;
+    ota_firmware_buf = malloc(ota_firmware_size);
+    if (!ota_firmware_buf) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>内存不足</div>");
         ota_in_progress = false;
         httpd_resp_set_status(req, "302 Found");
         httpd_resp_set_hdr(req, "Location", "/ota");
@@ -642,23 +674,13 @@ static esp_err_t upload_handler(httpd_req_t *req)
         return ESP_OK;
     }
     
-    esp_err_t err = esp_ota_begin(ota_update_partition, OTA_SIZE_UNKNOWN, &ota_update_handle);
-    if (err != ESP_OK) {
-        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>OTA初始化失败</div>");
-        ota_in_progress = false;
-        httpd_resp_set_status(req, "302 Found");
-        httpd_resp_set_hdr(req, "Location", "/ota");
-        httpd_resp_send(req, NULL, 0);
-        return ESP_OK;
-    }
-    
-    // 接收并写入数据
-    char buf[OTA_UPLOAD_BUF_SIZE];
-    int remaining = req->content_len;
+    // 接收固件数据
     size_t total_received = 0;
+    char buf[1024];
+    int remaining = ota_firmware_size;
     bool success = true;
     
-    ESP_LOGI(TAG, "Receiving firmware, size=%d", remaining);
+    ESP_LOGI(TAG, "Receiving firmware, size=%d", ota_firmware_size);
     
     while (remaining > 0) {
         int to_read = remaining > sizeof(buf) ? sizeof(buf) : remaining;
@@ -667,38 +689,26 @@ static esp_err_t upload_handler(httpd_req_t *req)
             success = false;
             break;
         }
-        
-        err = esp_ota_write(ota_update_handle, buf, ret);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "OTA write failed: %s", esp_err_to_name(err));
-            success = false;
-            break;
-        }
-        
+        memcpy(ota_firmware_buf + total_received, buf, ret);
         total_received += ret;
         remaining -= ret;
-        
-        // 更新进度
-        int percent = (total_received * 100) / req->content_len;
-        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>接收中... %d%%</div>", percent);
     }
     
-    if (success && remaining == 0) {
-        err = esp_ota_end(ota_update_handle);
-        if (err == ESP_OK) {
-            err = esp_ota_set_boot_partition(ota_update_partition);
-            if (err == ESP_OK) {
-                snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>更新成功，重启中...</div>");
-                ESP_LOGI(TAG, "Local OTA success! Received %d bytes", total_received);
-                vTaskDelay(pdMS_TO_TICKS(1000));
-                esp_restart();
-            }
-        }
+    if (!success || remaining != 0) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>接收失败</div>");
+        free(ota_firmware_buf);
+        ota_firmware_buf = NULL;
+        ota_in_progress = false;
+        httpd_resp_set_status(req, "302 Found");
+        httpd_resp_set_hdr(req, "Location", "/ota");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
     }
     
-    esp_ota_abort(ota_update_handle);
-    snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>更新失败</div>");
-    ota_in_progress = false;
+    ESP_LOGI(TAG, "Firmware received: %d bytes", total_received);
+    
+    // 启动OTA任务
+    xTaskCreate(local_ota_task, "local_ota", 8192, NULL, 5, NULL);
     
     httpd_resp_set_status(req, "302 Found");
     httpd_resp_set_hdr(req, "Location", "/ota");
