@@ -662,10 +662,10 @@ static esp_err_t upload_handler(httpd_req_t *req)
     ota_in_progress = true;
     snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在接收固件...</div>");
     
-    // 分配内存存储固件
-    ota_firmware_size = req->content_len;
-    ota_firmware_buf = malloc(ota_firmware_size);
-    if (!ota_firmware_buf) {
+    // 读取整个请求到缓冲区
+    size_t buf_size = req->content_len;
+    uint8_t *full_buf = malloc(buf_size);
+    if (!full_buf) {
         snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>内存不足</div>");
         ota_in_progress = false;
         httpd_resp_set_status(req, "302 Found");
@@ -674,30 +674,32 @@ static esp_err_t upload_handler(httpd_req_t *req)
         return ESP_OK;
     }
     
-    // 接收固件数据
-    size_t total_received = 0;
-    char buf[1024];
-    int remaining = ota_firmware_size;
-    bool success = true;
-    
-    ESP_LOGI(TAG, "Receiving firmware, size=%d", ota_firmware_size);
-    
-    while (remaining > 0) {
-        int to_read = remaining > sizeof(buf) ? sizeof(buf) : remaining;
-        int ret = httpd_req_recv(req, buf, to_read);
-        if (ret <= 0) {
-            success = false;
-            break;
-        }
-        memcpy(ota_firmware_buf + total_received, buf, ret);
-        total_received += ret;
-        remaining -= ret;
+    size_t total = 0;
+    while (total < buf_size) {
+        int ret = httpd_req_recv(req, full_buf + total, buf_size - total);
+        if (ret <= 0) break;
+        total += ret;
     }
     
-    if (!success || remaining != 0) {
-        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>接收失败</div>");
-        free(ota_firmware_buf);
-        ota_firmware_buf = NULL;
+    ESP_LOGI(TAG, "Received %d bytes (content_len=%d)", total, buf_size);
+    
+    // 找到固件数据的起始位置（跳过multipart头）
+    uint8_t *fw_start = NULL;
+    size_t fw_size = 0;
+    
+    // 搜索0xE9魔数字节（ESP32固件头）
+    for (size_t i = 0; i < total - 4; i++) {
+        if (full_buf[i] == 0xE9 && full_buf[i+1] == 0x06) {
+            fw_start = full_buf + i;
+            fw_size = total - i;
+            ESP_LOGI(TAG, "Found firmware at offset %d, size=%d", i, fw_size);
+            break;
+        }
+    }
+    
+    if (!fw_start || fw_size < 1024) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>无效的固件文件</div>");
+        free(full_buf);
         ota_in_progress = false;
         httpd_resp_set_status(req, "302 Found");
         httpd_resp_set_hdr(req, "Location", "/ota");
@@ -705,7 +707,23 @@ static esp_err_t upload_handler(httpd_req_t *req)
         return ESP_OK;
     }
     
-    ESP_LOGI(TAG, "Firmware received: %d bytes", total_received);
+    // 复制固件数据
+    ota_firmware_size = fw_size;
+    ota_firmware_buf = malloc(ota_firmware_size);
+    if (!ota_firmware_buf) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>内存不足</div>");
+        free(full_buf);
+        ota_in_progress = false;
+        httpd_resp_set_status(req, "302 Found");
+        httpd_resp_set_hdr(req, "Location", "/ota");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
+    
+    memcpy(ota_firmware_buf, fw_start, fw_size);
+    free(full_buf);
+    
+    ESP_LOGI(TAG, "Firmware extracted: %d bytes", ota_firmware_size);
     
     // 启动OTA任务
     xTaskCreate(local_ota_task, "local_ota", 8192, NULL, 5, NULL);
