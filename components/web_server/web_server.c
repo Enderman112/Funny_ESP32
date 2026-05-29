@@ -444,61 +444,64 @@ static esp_err_t sync_handler(httpd_req_t *req)
 static void ota_task(void *arg)
 {
     char *url = (char*)arg;
+    int max_retries = 3;
+    int retry = 0;
     
-    ESP_LOGI(TAG, "OTA starting from: %s", url);
-    snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在更新...</div>");
-    
-    esp_http_client_config_t config = {};
-    config.url = url;
-    config.timeout_ms = 120000;
-    config.keep_alive_enable = true;
-    config.crt_bundle_attach = esp_crt_bundle_attach;
-    
-    esp_https_ota_config_t ota_config = {};
-    ota_config.http_config = &config;
-    
-    esp_https_ota_handle_t ota_handle = NULL;
-    esp_err_t err = esp_https_ota_begin(&ota_config, &ota_handle);
-    
-    if (err != ESP_OK) {
-        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>开始更新失败: %s</div>", esp_err_to_name(err));
-        ESP_LOGE(TAG, "OTA begin failed: %s", esp_err_to_name(err));
-        ota_in_progress = false;
-        vTaskDelete(NULL);
-        return;
-    }
-    
-    while (1) {
-        err = esp_https_ota_perform(ota_handle);
-        if (err == ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
+    while (retry < max_retries) {
+        ESP_LOGI(TAG, "OTA attempt %d/%d from: %s", retry + 1, max_retries, url);
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在更新... (%d/%d)</div>", retry + 1, max_retries);
+        
+        esp_http_client_config_t config = {};
+        config.url = url;
+        config.timeout_ms = 120000;
+        config.keep_alive_enable = true;
+        config.crt_bundle_attach = esp_crt_bundle_attach;
+        
+        esp_https_ota_config_t ota_config = {};
+        ota_config.http_config = &config;
+        
+        esp_https_ota_handle_t ota_handle = NULL;
+        esp_err_t err = esp_https_ota_begin(&ota_config, &ota_handle);
+        
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "OTA begin failed: %s", esp_err_to_name(err));
+            retry++;
+            vTaskDelay(pdMS_TO_TICKS(3000));
             continue;
-        } else if (err == ESP_OK) {
-            break;
-        } else {
-            snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>更新失败: %s</div>", esp_err_to_name(err));
-            ESP_LOGE(TAG, "OTA perform failed: %s", esp_err_to_name(err));
-            esp_https_ota_abort(ota_handle);
-            ota_in_progress = false;
-            vTaskDelete(NULL);
-            return;
         }
-    }
-    
-    if (esp_https_ota_is_complete_data_received(ota_handle)) {
-        err = esp_https_ota_finish(ota_handle);
+        
+        while (1) {
+            err = esp_https_ota_perform(ota_handle);
+            if (err == ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
+                continue;
+            } else if (err == ESP_OK) {
+                break;
+            } else {
+                ESP_LOGE(TAG, "OTA perform failed: %s", esp_err_to_name(err));
+                esp_https_ota_abort(ota_handle);
+                retry++;
+                vTaskDelay(pdMS_TO_TICKS(3000));
+                break;
+            }
+        }
+        
         if (err == ESP_OK) {
-            snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>更新成功，重启中...</div>");
-            ESP_LOGI(TAG, "OTA success, restarting...");
-            vTaskDelay(pdMS_TO_TICKS(1000));
-            esp_restart();
-        } else {
-            snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>完成更新失败: %s</div>", esp_err_to_name(err));
+            if (esp_https_ota_is_complete_data_received(ota_handle)) {
+                err = esp_https_ota_finish(ota_handle);
+                if (err == ESP_OK) {
+                    snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>更新成功，重启中...</div>");
+                    ESP_LOGI(TAG, "OTA success, restarting...");
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                    esp_restart();
+                }
+            } else {
+                esp_https_ota_abort(ota_handle);
+                retry++;
+            }
         }
-    } else {
-        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>数据接收不完整</div>");
-        esp_https_ota_abort(ota_handle);
     }
     
+    snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>更新失败，已重试%d次</div>", max_retries);
     ota_in_progress = false;
     vTaskDelete(NULL);
 }
