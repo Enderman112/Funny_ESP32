@@ -71,7 +71,8 @@ static void fetch_latest_version(void)
         .event_handler = http_event_handler,
         .timeout_ms = 10000,
         .crt_bundle_attach = esp_crt_bundle_attach,
-        .buffer_size = 2048,
+        .buffer_size = 4096,
+        .buffer_size_tx = 1024,
     };
     
     ESP_LOGI(TAG, "Fetching latest version...");
