@@ -329,7 +329,8 @@ static void fetch_deepseek_info(void)
     config.url = "https://api.deepseek.com/user/balance";
     config.event_handler = deepseek_balance_handler;
     config.timeout_ms = 15000;
-    config.buffer_size = 1024;
+    config.buffer_size = 4096;
+    config.buffer_size_tx = 1024;
     config.keep_alive_enable = true;
     config.crt_bundle_attach = esp_crt_bundle_attach;
     
