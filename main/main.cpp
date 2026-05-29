@@ -466,14 +466,22 @@ static void fetch_mimo_usage(void)
     }
     
     // 使用esp_tls直接发送HTTP请求，绕过HTTP客户端的认证解析
-    struct esp_tls *tls = NULL;
+    esp_tls_t *tls = NULL;
     esp_tls_cfg_t cfg = {};
     cfg.crt_bundle_attach = esp_crt_bundle_attach;
     
-    tls = esp_tls_conn_http_new_sync("https://platform.xiaomimimo.com/api/v1/tokenPlan/usage", &cfg);
+    tls = esp_tls_init();
     if (tls == NULL) {
+        snprintf(mimo_error, sizeof(mimo_error), "初始化失败");
+        return;
+    }
+    
+    int ret = esp_tls_conn_http_new_sync("https://platform.xiaomimimo.com/api/v1/tokenPlan/usage", &cfg, tls);
+    int ret = esp_tls_conn_http_new_sync("https://platform.xiaomimimo.com/api/v1/tokenPlan/usage", &cfg, tls);
+    if (ret < 0) {
         snprintf(mimo_error, sizeof(mimo_error), "连接失败");
-        ESP_LOGE(TAG, "MiMo TLS connection failed");
+        ESP_LOGE(TAG, "MiMo TLS connection failed: %d", ret);
+        esp_tls_conn_destroy(tls);
         return;
     }
     
