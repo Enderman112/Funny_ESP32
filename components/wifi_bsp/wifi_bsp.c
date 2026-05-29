@@ -49,16 +49,21 @@ static void fetch_latest_version(void)
     esp_http_client_config_t config = {
         .url = "https://api.github.com/repos/Enderman112/Funny_ESP32/releases/latest",
         .event_handler = http_event_handler,
-        .timeout_ms = 5000,
+        .timeout_ms = 10000,
         .crt_bundle_attach = esp_crt_bundle_attach,
+        .buffer_size = 2048,
     };
     
+    ESP_LOGI(TAG, "Fetching latest version...");
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "User-Agent", "ESP32");
     esp_err_t err = esp_http_client_perform(client);
     
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "HTTP request failed: %s", esp_err_to_name(err));
+    } else {
+        int status = esp_http_client_get_status_code(client);
+        ESP_LOGI(TAG, "GitHub API status: %d", status);
     }
     
     esp_http_client_cleanup(client);
