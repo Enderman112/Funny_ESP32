@@ -252,6 +252,7 @@ static lv_obj_t *ota_btn_label = NULL;
 static lv_obj_t *wifi_icon = NULL;
 static lv_obj_t *battery_icon = NULL;
 static lv_obj_t *battery_label = NULL;
+static lv_obj_t *charge_icon = NULL;
 
 static esp_err_t deepseek_balance_handler(esp_http_client_event_t *evt)
 {
@@ -752,38 +753,38 @@ static void create_menu_ui(void)
     lv_obj_set_style_text_font(hello_label, &lv_font_montserrat_28, 0);
     lv_obj_align(hello_label, LV_ALIGN_CENTER, 0, 0);
     
-    // Create DeepSeek label (left side, hidden by default - Chinese)
+    // Create DeepSeek label (left side, hidden by default)
     deepseek_label = lv_label_create(lv_scr_act());
     lv_label_set_text(deepseek_label, "");
     lv_obj_set_style_text_font(deepseek_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(deepseek_label, LV_ALIGN_TOP_LEFT, 10, 40);
+    lv_obj_align(deepseek_label, LV_ALIGN_TOP_LEFT, 20, 50);
     lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
     
-    // Create MiMo label (right side, hidden by default - Chinese)
+    // Create MiMo label (right side, hidden by default)
     mimo_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_label, "");
     lv_obj_set_style_text_font(mimo_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_label, LV_ALIGN_TOP_MID, 50, 40);
+    lv_obj_align(mimo_label, LV_ALIGN_TOP_LEFT, 220, 50);
     lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
     
-    // Create MiMo progress bar
+    // Create MiMo progress bar (square)
     mimo_bar = lv_bar_create(lv_scr_act());
-    lv_obj_set_size(mimo_bar, 120, 15);
-    lv_obj_align(mimo_bar, LV_ALIGN_TOP_MID, 50, 65);
+    lv_obj_set_size(mimo_bar, 130, 14);
+    lv_obj_align(mimo_bar, LV_ALIGN_TOP_LEFT, 220, 90);
     lv_bar_set_range(mimo_bar, 0, 100);
     lv_bar_set_value(mimo_bar, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0xDDDDDD), 0);
     lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0x4CAF50), LV_PART_INDICATOR);
     lv_obj_set_style_border_width(mimo_bar, 1, 0);
     lv_obj_set_style_border_color(mimo_bar, lv_color_hex(0x999999), 0);
-    lv_obj_set_style_radius(mimo_bar, 3, 0);
+    lv_obj_set_style_radius(mimo_bar, 0, 0);
     lv_obj_add_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo bar label (percentage text)
     mimo_bar_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_bar_label, "0%");
     lv_obj_set_style_text_font(mimo_bar_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar_label, LV_ALIGN_TOP_MID, 50, 85);
+    lv_obj_align(mimo_bar_label, LV_ALIGN_TOP_LEFT, 220, 110);
     lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create OTA button label (bottom center, hidden by default)
@@ -823,23 +824,30 @@ static void create_menu_ui(void)
     update_menu_ui();
     
     // Create status bar (bottom right)
-    // WiFi icon
-    wifi_icon = lv_label_create(lv_scr_act());
-    lv_label_set_text(wifi_icon, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_font(wifi_icon, &lv_font_montserrat_14, 0);
-    lv_obj_align(wifi_icon, LV_ALIGN_BOTTOM_RIGHT, -50, -5);
-    
-    // Battery icon
-    battery_icon = lv_label_create(lv_scr_act());
-    lv_label_set_text(battery_icon, LV_SYMBOL_BATTERY_FULL);
-    lv_obj_set_style_text_font(battery_icon, &lv_font_montserrat_14, 0);
-    lv_obj_align(battery_icon, LV_ALIGN_BOTTOM_RIGHT, -25, -5);
-    
     // Battery percentage
     battery_label = lv_label_create(lv_scr_act());
     lv_label_set_text(battery_label, "100%");
     lv_obj_set_style_text_font(battery_label, &lv_font_montserrat_14, 0);
     lv_obj_align(battery_label, LV_ALIGN_BOTTOM_RIGHT, -5, -5);
+    
+    // Battery icon
+    battery_icon = lv_label_create(lv_scr_act());
+    lv_label_set_text(battery_icon, LV_SYMBOL_BATTERY_FULL);
+    lv_obj_set_style_text_font(battery_icon, &lv_font_montserrat_14, 0);
+    lv_obj_align(battery_icon, LV_ALIGN_BOTTOM_RIGHT, -45, -5);
+    
+    // Charge icon (lightning)
+    charge_icon = lv_label_create(lv_scr_act());
+    lv_label_set_text(charge_icon, LV_SYMBOL_CHARGE);
+    lv_obj_set_style_text_font(charge_icon, &lv_font_montserrat_14, 0);
+    lv_obj_align(charge_icon, LV_ALIGN_BOTTOM_RIGHT, -60, -5);
+    lv_obj_add_flag(charge_icon, LV_OBJ_FLAG_HIDDEN);
+    
+    // WiFi icon
+    wifi_icon = lv_label_create(lv_scr_act());
+    lv_label_set_text(wifi_icon, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_font(wifi_icon, &lv_font_montserrat_14, 0);
+    lv_obj_align(wifi_icon, LV_ALIGN_BOTTOM_RIGHT, -80, -5);
 }
 
 static void api_refresh_task(void *arg)
@@ -875,9 +883,19 @@ static void status_bar_task(void *arg)
             // Update battery
             if (battery_icon && battery_label) {
                 uint8_t level = adc_bsp_get_battery_level();
+                float voltage = adc_bsp_get_battery_voltage();
                 char level_buf[8];
                 snprintf(level_buf, sizeof(level_buf), "%d%%", level);
                 lv_label_set_text(battery_label, level_buf);
+                
+                // Show charge icon when voltage >= 4.15V (charging)
+                if (charge_icon) {
+                    if (voltage >= 4.15f) {
+                        lv_obj_clear_flag(charge_icon, LV_OBJ_FLAG_HIDDEN);
+                    } else {
+                        lv_obj_add_flag(charge_icon, LV_OBJ_FLAG_HIDDEN);
+                    }
+                }
                 
                 if (level > 75) {
                     lv_label_set_text(battery_icon, LV_SYMBOL_BATTERY_FULL);
