@@ -41,16 +41,22 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
             break;
         case HTTP_EVENT_ON_FINISH:
             if (version_buffer) {
-                char *tag_start = strstr(version_buffer, "\"tag_name\":\"");
+                char *tag_start = strstr(version_buffer, "\"tag_name\":");
                 if (tag_start) {
-                    tag_start += 12;
-                    char *tag_end = strchr(tag_start, '"');
-                    if (tag_end) {
-                        int len = tag_end - tag_start;
-                        if (len > 31) len = 31;
-                        strncpy(latest_version, tag_start, len);
-                        latest_version[len] = '\0';
-                        ESP_LOGI(TAG, "Latest version: %s", latest_version);
+                    tag_start = strchr(tag_start, '"');
+                    if (tag_start) {
+                        tag_start = strchr(tag_start + 1, '"');
+                        if (tag_start) {
+                            tag_start++;
+                            char *tag_end = strchr(tag_start, '"');
+                            if (tag_end) {
+                                int len = tag_end - tag_start;
+                                if (len > 31) len = 31;
+                                strncpy(latest_version, tag_start, len);
+                                latest_version[len] = '\0';
+                                ESP_LOGI(TAG, "Latest version: %s", latest_version);
+                            }
+                        }
                     }
                 }
                 free(version_buffer);
