@@ -477,7 +477,6 @@ static void fetch_mimo_usage(void)
     }
     
     int ret = esp_tls_conn_http_new_sync("https://platform.xiaomimimo.com/api/v1/tokenPlan/usage", &cfg, tls);
-    int ret = esp_tls_conn_http_new_sync("https://platform.xiaomimimo.com/api/v1/tokenPlan/usage", &cfg, tls);
     if (ret < 0) {
         snprintf(mimo_error, sizeof(mimo_error), "连接失败");
         ESP_LOGE(TAG, "MiMo TLS connection failed: %d", ret);
