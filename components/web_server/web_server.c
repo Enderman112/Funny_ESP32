@@ -573,7 +573,7 @@ static esp_err_t ota_handler(httpd_req_t *req)
 // ===== 本地OTA任务 =====
 static void local_ota_task(void *arg)
 {
-    esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
+    const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
     if (!update_partition) {
         snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>找不到OTA分区</div>");
         ota_in_progress = false;
@@ -592,26 +592,6 @@ static void local_ota_task(void *arg)
         return;
     }
     
-    // 读取共享缓冲区中的数据并写入
-    extern uint8_t *ota_upload_buf;
-    extern size_t ota_upload_len;
-    extern bool ota_upload_done;
-    extern bool ota_upload_success;
-    
-    size_t total_written = 0;
-    while (!ota_upload_done) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-    
-    if (!ota_upload_success) {
-        esp_ota_abort(update_handle);
-        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>文件接收失败</div>");
-        ota_in_progress = false;
-        vTaskDelete(NULL);
-        return;
-    }
-    
-    // 数据已经在upload handler中写入
     err = esp_ota_end(update_handle);
     if (err != ESP_OK) {
         snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>OTA验证失败</div>");
@@ -634,11 +614,7 @@ static void local_ota_task(void *arg)
     esp_restart();
 }
 
-// 上传缓冲区
-static uint8_t *ota_upload_buf = NULL;
-static size_t ota_upload_len = 0;
-static bool ota_upload_done = false;
-static bool ota_upload_success = false;
+// OTA句柄
 static esp_ota_handle_t ota_update_handle = 0;
 static const esp_partition_t *ota_update_partition = NULL;
 
