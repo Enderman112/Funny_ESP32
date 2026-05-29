@@ -466,10 +466,10 @@ static void fetch_mimo_usage(void)
     esp_http_client_config_t config = {};
     config.url = "https://platform.xiaomimimo.com/api/v1/tokenPlan/usage";
     config.event_handler = mimo_usage_handler;
-    config.timeout_ms = 5000;
+    config.timeout_ms = 15000;
     config.crt_bundle_attach = esp_crt_bundle_attach;
-    config.buffer_size = 2048;
-    config.disable_auto_redirect = true;
+    config.buffer_size = 4096;
+    config.buffer_size_tx = 1024;
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "Cookie", mimo_cookie);
