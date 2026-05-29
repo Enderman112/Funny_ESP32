@@ -239,6 +239,7 @@ static char mimo_cookie[640] = "";
 static char mimo_month_used[32] = "未知";
 static char mimo_month_limit[32] = "未知";
 static int mimo_month_percent = 0;
+static float mimo_month_percent_f = 0.0f;
 static char mimo_error[64] = "";
 
 // UI labels for API page
@@ -429,7 +430,7 @@ static esp_err_t mimo_usage_handler(esp_http_client_event_t *evt)
                     if (pct) {
                         pct += 10;
                         float percent = atof(pct);
-                        mimo_month_percent = (int)(percent * 100);
+                        mimo_month_percent_f = percent * 100.0f;
                     }
                 }
                 
@@ -666,12 +667,12 @@ static void update_deepseek_page(void)
         float limit_b = atof(mimo_month_limit) / 1000000000.0f;
         snprintf(mimo_buf, sizeof(mimo_buf), "MiMo\n\n%.1fB / %.1fB", used_b, limit_b);
         if (mimo_bar) {
-            lv_bar_set_value(mimo_bar, mimo_month_percent, LV_ANIM_OFF);
+            lv_bar_set_value(mimo_bar, (int)mimo_month_percent_f, LV_ANIM_OFF);
             lv_obj_clear_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
         }
         if (mimo_bar_label) {
             char percent_buf[16];
-            snprintf(percent_buf, sizeof(percent_buf), "%d%%", mimo_month_percent);
+            snprintf(percent_buf, sizeof(percent_buf), "%.1f%%", mimo_month_percent_f);
             lv_label_set_text(mimo_bar_label, percent_buf);
             lv_obj_clear_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
         }
