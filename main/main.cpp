@@ -243,6 +243,8 @@ static char mimo_error[64] = "";
 // UI labels for API page
 static lv_obj_t *deepseek_label = NULL;
 static lv_obj_t *mimo_label = NULL;
+static lv_obj_t *mimo_bar = NULL;
+static lv_obj_t *mimo_bar_label = NULL;
 static lv_obj_t *ota_btn_label = NULL;
 
 static esp_err_t deepseek_balance_handler(esp_http_client_event_t *evt)
@@ -655,17 +657,20 @@ static void update_deepseek_page(void)
     char mimo_buf[128];
     if (strlen(mimo_error) > 0) {
         snprintf(mimo_buf, sizeof(mimo_buf), "MiMo\n\n错误: %s", mimo_error);
+        if (mimo_bar) lv_obj_add_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
+        if (mimo_bar_label) lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
     } else {
-        // Progress bar text
-        char bar[16] = "";
-        int filled = mimo_month_percent / 10;
-        for (int i = 0; i < 10; i++) {
-            bar[i] = (i < filled) ? '#' : '-';
+        snprintf(mimo_buf, sizeof(mimo_buf), "MiMo\n\n%s / %s", mimo_month_used, mimo_month_limit);
+        if (mimo_bar) {
+            lv_bar_set_value(mimo_bar, mimo_month_percent, LV_ANIM_OFF);
+            lv_obj_clear_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
         }
-        bar[10] = '\0';
-        snprintf(mimo_buf, sizeof(mimo_buf), "MiMo\n\n本月: %d%%\n[%s]\n%s / %s", 
-                 mimo_month_percent,
-                 bar, mimo_month_used, mimo_month_limit);
+        if (mimo_bar_label) {
+            char percent_buf[16];
+            snprintf(percent_buf, sizeof(percent_buf), "%d%%", mimo_month_percent);
+            lv_label_set_text(mimo_bar_label, percent_buf);
+            lv_obj_clear_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
+        }
     }
     if (mimo_label) lv_label_set_text(mimo_label, mimo_buf);
 }
@@ -680,6 +685,8 @@ static void execute_menu_item(void)
                 lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_set_style_text_font(hello_label, &lv_font_montserrat_28, 0);
                 lv_label_set_text(hello_label, "Hello World!");
@@ -690,6 +697,8 @@ static void execute_menu_item(void)
                 lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
                 info_selected = 0;
                 update_info_page();
@@ -753,8 +762,25 @@ static void create_menu_ui(void)
     mimo_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_label, "");
     lv_obj_set_style_text_font(mimo_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_label, LV_ALIGN_RIGHT_MID, -10, 0);
+    lv_obj_align(mimo_label, LV_ALIGN_RIGHT_MID, -10, -20);
     lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
+    
+    // Create MiMo progress bar
+    mimo_bar = lv_bar_create(lv_scr_act());
+    lv_obj_set_size(mimo_bar, 100, 15);
+    lv_obj_align(mimo_bar, LV_ALIGN_RIGHT_MID, -10, 20);
+    lv_bar_set_range(mimo_bar, 0, 100);
+    lv_bar_set_value(mimo_bar, 0, LV_ANIM_OFF);
+    lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0xDDDDDD), 0);
+    lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0x4CAF50), LV_PART_INDICATOR);
+    lv_obj_add_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
+    
+    // Create MiMo bar label (percentage text)
+    mimo_bar_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(mimo_bar_label, "0%");
+    lv_obj_set_style_text_font(mimo_bar_label, &lv_font_MiSansLight_16, 0);
+    lv_obj_align(mimo_bar_label, LV_ALIGN_RIGHT_MID, -10, 40);
+    lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create OTA button label (bottom center, hidden by default)
     ota_btn_label = lv_label_create(lv_scr_act());
