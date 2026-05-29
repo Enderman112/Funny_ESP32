@@ -22,6 +22,7 @@
 #include "button_bsp.h"
 #include "wifi_bsp.h"
 #include "web_server.h"
+#include "adc_bsp.h"
 
 extern "C" const lv_font_t lv_font_MiSansLight_16;
 
@@ -246,6 +247,11 @@ static lv_obj_t *mimo_label = NULL;
 static lv_obj_t *mimo_bar = NULL;
 static lv_obj_t *mimo_bar_label = NULL;
 static lv_obj_t *ota_btn_label = NULL;
+
+// Status bar labels
+static lv_obj_t *wifi_icon = NULL;
+static lv_obj_t *battery_icon = NULL;
+static lv_obj_t *battery_label = NULL;
 
 static esp_err_t deepseek_balance_handler(esp_http_client_event_t *evt)
 {
@@ -817,6 +823,25 @@ static void create_menu_ui(void)
     }
     
     update_menu_ui();
+    
+    // Create status bar (bottom right)
+    // WiFi icon
+    wifi_icon = lv_label_create(lv_scr_act());
+    lv_label_set_text(wifi_icon, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_font(wifi_icon, &lv_font_montserrat_14, 0);
+    lv_obj_align(wifi_icon, LV_ALIGN_BOTTOM_RIGHT, -50, -5);
+    
+    // Battery icon
+    battery_icon = lv_label_create(lv_scr_act());
+    lv_label_set_text(battery_icon, LV_SYMBOL_BATTERY_FULL);
+    lv_obj_set_style_text_font(battery_icon, &lv_font_montserrat_14, 0);
+    lv_obj_align(battery_icon, LV_ALIGN_BOTTOM_RIGHT, -25, -5);
+    
+    // Battery percentage
+    battery_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(battery_label, "100%");
+    lv_obj_set_style_text_font(battery_label, &lv_font_montserrat_14, 0);
+    lv_obj_align(battery_label, LV_ALIGN_BOTTOM_RIGHT, -5, -5);
 }
 
 static void api_refresh_task(void *arg)
@@ -831,6 +856,46 @@ static void api_refresh_task(void *arg)
                 Lvgl_unlock();
             }
         }
+    }
+}
+
+static void status_bar_task(void *arg)
+{
+    while(1) {
+        if (Lvgl_lock(-1)) {
+            // Update WiFi icon
+            if (wifi_icon) {
+                if (wifi_bsp_is_connected()) {
+                    lv_label_set_text(wifi_icon, LV_SYMBOL_WIFI);
+                    lv_obj_set_style_text_color(wifi_icon, lv_color_hex(0x000000), 0);
+                } else {
+                    lv_label_set_text(wifi_icon, LV_SYMBOL_WIFI);
+                    lv_obj_set_style_text_color(wifi_icon, lv_color_hex(0xCCCCCC), 0);
+                }
+            }
+            
+            // Update battery
+            if (battery_icon && battery_label) {
+                uint8_t level = adc_bsp_get_battery_level();
+                char level_buf[8];
+                snprintf(level_buf, sizeof(level_buf), "%d%%", level);
+                lv_label_set_text(battery_label, level_buf);
+                
+                if (level > 75) {
+                    lv_label_set_text(battery_icon, LV_SYMBOL_BATTERY_FULL);
+                } else if (level > 50) {
+                    lv_label_set_text(battery_icon, LV_SYMBOL_BATTERY_3);
+                } else if (level > 25) {
+                    lv_label_set_text(battery_icon, LV_SYMBOL_BATTERY_2);
+                } else if (level > 10) {
+                    lv_label_set_text(battery_icon, LV_SYMBOL_BATTERY_1);
+                } else {
+                    lv_label_set_text(battery_icon, LV_SYMBOL_BATTERY_EMPTY);
+                }
+            }
+            Lvgl_unlock();
+        }
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
 
@@ -961,6 +1026,9 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "Initializing WiFi...");
     wifi_bsp_init();
     
+    ESP_LOGI(TAG, "Initializing ADC (Battery)...");
+    adc_bsp_init();
+    
     ESP_LOGI(TAG, "Initializing Web Server...");
     web_server_init();
     
@@ -968,6 +1036,7 @@ extern "C" void app_main(void)
     xTaskCreatePinnedToCore(clock_task, "clock_task", 2 * 1024, NULL, 3, NULL, 1);
     xTaskCreatePinnedToCore(ntp_task, "ntp_task", 4 * 1024, NULL, 2, NULL, 1);
     xTaskCreatePinnedToCore(api_refresh_task, "api_refresh", 8 * 1024, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(status_bar_task, "status_bar", 4 * 1024, NULL, 2, NULL, 1);
     
     ESP_LOGI(TAG, "Menu system ready!");
     ESP_LOGI(TAG, "Web admin: http://[IP]");
