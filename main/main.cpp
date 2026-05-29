@@ -662,7 +662,10 @@ static void update_deepseek_page(void)
         if (mimo_bar) lv_obj_add_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
         if (mimo_bar_label) lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
     } else {
-        snprintf(mimo_buf, sizeof(mimo_buf), "MiMo\n\n%s / %s", mimo_month_used, mimo_month_limit);
+        // 格式化为 x.xB/x.xB
+        float used_b = atof(mimo_month_used) / 1000000000.0f;
+        float limit_b = atof(mimo_month_limit) / 1000000000.0f;
+        snprintf(mimo_buf, sizeof(mimo_buf), "MiMo\n\n%.1fB / %.1fB", used_b, limit_b);
         if (mimo_bar) {
             lv_bar_set_value(mimo_bar, mimo_month_percent, LV_ANIM_OFF);
             lv_obj_clear_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
