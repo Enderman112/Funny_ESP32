@@ -19,12 +19,29 @@ static char latest_version[32] = "unknown";
 static bool ap_active = false;
 static char ap_ip[16] = "192.168.4.1";
 
+static char *version_buffer = NULL;
+static int version_buffer_len = 0;
+
 static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
     switch (evt->event_id) {
         case HTTP_EVENT_ON_DATA:
-            if (evt->data_len > 0 && evt->data_len < 512) {
-                char *tag_start = strstr((char*)evt->data, "\"tag_name\":\"");
+            if (evt->data_len > 0) {
+                // 累积数据
+                if (version_buffer == NULL) {
+                    version_buffer = malloc(2048);
+                    version_buffer_len = 0;
+                }
+                if (version_buffer && version_buffer_len + evt->data_len < 2048) {
+                    memcpy(version_buffer + version_buffer_len, evt->data, evt->data_len);
+                    version_buffer_len += evt->data_len;
+                    version_buffer[version_buffer_len] = '\0';
+                }
+            }
+            break;
+        case HTTP_EVENT_ON_FINISH:
+            if (version_buffer) {
+                char *tag_start = strstr(version_buffer, "\"tag_name\":\"");
                 if (tag_start) {
                     tag_start += 12;
                     char *tag_end = strchr(tag_start, '"');
@@ -36,6 +53,9 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
                         ESP_LOGI(TAG, "Latest version: %s", latest_version);
                     }
                 }
+                free(version_buffer);
+                version_buffer = NULL;
+                version_buffer_len = 0;
             }
             break;
         default:
