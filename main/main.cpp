@@ -765,14 +765,14 @@ static void create_menu_ui(void)
     mimo_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_label, "");
     lv_obj_set_style_text_font(mimo_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_label, LV_ALIGN_TOP_LEFT, 210, 70);
-    lv_obj_set_width(mimo_label, 180);
+    lv_obj_align(mimo_label, LV_ALIGN_TOP_LEFT, 190, 70);
+    lv_obj_set_width(mimo_label, 200);
     lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo progress bar (square)
     mimo_bar = lv_bar_create(lv_scr_act());
     lv_obj_set_size(mimo_bar, 150, 14);
-    lv_obj_align(mimo_bar, LV_ALIGN_TOP_LEFT, 210, 130);
+    lv_obj_align(mimo_bar, LV_ALIGN_TOP_LEFT, 190, 130);
     lv_bar_set_range(mimo_bar, 0, 100);
     lv_bar_set_value(mimo_bar, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0xDDDDDD), 0);
@@ -786,7 +786,7 @@ static void create_menu_ui(void)
     mimo_bar_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_bar_label, "0%");
     lv_obj_set_style_text_font(mimo_bar_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar_label, LV_ALIGN_TOP_LEFT, 210, 150);
+    lv_obj_align(mimo_bar_label, LV_ALIGN_TOP_LEFT, 190, 150);
     lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create OTA button label (bottom center, hidden by default)
