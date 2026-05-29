@@ -819,6 +819,21 @@ static void create_menu_ui(void)
     update_menu_ui();
 }
 
+static void api_refresh_task(void *arg)
+{
+    while(1) {
+        vTaskDelay(pdMS_TO_TICKS(60000));
+        if (deepseek_page_active) {
+            if (Lvgl_lock(-1)) {
+                fetch_deepseek_info();
+                fetch_mimo_usage();
+                update_deepseek_page();
+                Lvgl_unlock();
+            }
+        }
+    }
+}
+
 static void button_task(void *arg)
 {
     while(1) {
@@ -952,6 +967,7 @@ extern "C" void app_main(void)
     xTaskCreatePinnedToCore(button_task, "button_task", 8 * 1024, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(clock_task, "clock_task", 2 * 1024, NULL, 3, NULL, 1);
     xTaskCreatePinnedToCore(ntp_task, "ntp_task", 4 * 1024, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(api_refresh_task, "api_refresh", 4 * 1024, NULL, 2, NULL, 1);
     
     ESP_LOGI(TAG, "Menu system ready!");
     ESP_LOGI(TAG, "Web admin: http://[IP]");
