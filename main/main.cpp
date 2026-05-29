@@ -486,8 +486,8 @@ static void fetch_mimo_usage(void)
     }
     
     // 构建HTTP请求
-    char request[1024];
-    snprintf(request, sizeof(request),
+    char request[2048];
+    int req_len = snprintf(request, sizeof(request),
         "GET /api/v1/tokenPlan/usage HTTP/1.1\r\n"
         "Host: platform.xiaomimimo.com\r\n"
         "Cookie: %s\r\n"
@@ -496,7 +496,10 @@ static void fetch_mimo_usage(void)
         "\r\n",
         mimo_cookie);
     
-    int written = esp_tls_conn_write(tls, request, strlen(request));
+    ESP_LOGI(TAG, "MiMo request length: %d, cookie length: %d", req_len, strlen(mimo_cookie));
+    ESP_LOGI(TAG, "MiMo request: %s", request);
+    
+    int written = esp_tls_conn_write(tls, request, req_len);
     if (written < 0) {
         snprintf(mimo_error, sizeof(mimo_error), "发送请求失败");
         esp_tls_conn_destroy(tls);
