@@ -474,27 +474,28 @@ static void fetch_mimo_usage(void)
         return;
     }
     
-    // 使用esp_tls直接发送HTTP请求，绕过HTTP客户端的认证解析
-    esp_tls_t *tls = NULL;
+    // 等待一下，让DeepSeek请求释放资源
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    
+    // 使用esp_tls直接发送HTTP请求
     esp_tls_cfg_t cfg = {};
     cfg.crt_bundle_attach = esp_crt_bundle_attach;
     
-    tls = esp_tls_init();
+    esp_tls_t *tls = esp_tls_init();
     if (tls == NULL) {
         snprintf(mimo_error, sizeof(mimo_error), "初始化失败");
         return;
     }
     
     int ret = esp_tls_conn_http_new_sync("https://platform.xiaomimimo.com/api/v1/tokenPlan/usage", &cfg, tls);
-    if (ret < 0) {
+    if (ret < 0 || tls == NULL) {
         snprintf(mimo_error, sizeof(mimo_error), "连接失败");
         ESP_LOGE(TAG, "MiMo TLS connection failed: %d", ret);
-        esp_tls_conn_destroy(tls);
         return;
     }
     
     // 构建HTTP请求
-    char request[2048];
+    char request[1024];
     int req_len = snprintf(request, sizeof(request),
         "GET /api/v1/tokenPlan/usage HTTP/1.1\r\n"
         "Host: platform.xiaomimimo.com\r\n"
@@ -504,18 +505,15 @@ static void fetch_mimo_usage(void)
         "\r\n",
         mimo_cookie);
     
-    ESP_LOGI(TAG, "MiMo request length: %d, cookie length: %d", req_len, strlen(mimo_cookie));
-    ESP_LOGI(TAG, "MiMo request: %s", request);
-    
     int written = esp_tls_conn_write(tls, request, req_len);
     if (written < 0) {
-        snprintf(mimo_error, sizeof(mimo_error), "发送请求失败");
+        snprintf(mimo_error, sizeof(mimo_error), "发送失败");
         esp_tls_conn_destroy(tls);
         return;
     }
     
     // 读取响应
-    char response[2048];
+    char response[1024];
     int total_read = 0;
     while (total_read < sizeof(response) - 1) {
         int bytes_read = esp_tls_conn_read(tls, response + total_read, sizeof(response) - total_read - 1);
@@ -530,18 +528,15 @@ static void fetch_mimo_usage(void)
     if (sscanf(response, "HTTP/%*s %d", &status) == 1) {
         ESP_LOGI(TAG, "MiMo response status: %d", status);
         if (status == 200) {
-            // 解析JSON
             char *body = strstr(response, "\r\n\r\n");
             if (body) {
                 body += 4;
-                // 解析percent
                 char *percent_start = strstr(body, "\"percent\":");
                 if (percent_start) {
                     percent_start += 10;
                     float percent = atof(percent_start);
                     mimo_month_percent = (int)(percent * 100);
                 }
-                // 解析month_total_token used
                 char *used_start = strstr(body, "\"name\":\"month_total_token\"");
                 if (used_start) {
                     char *u = strstr(used_start, "\"used\":");
@@ -575,7 +570,7 @@ static void fetch_mimo_usage(void)
             snprintf(mimo_error, sizeof(mimo_error), "HTTP错误: %d", status);
         }
     } else {
-        snprintf(mimo_error, sizeof(mimo_error), "解析响应失败");
+        snprintf(mimo_error, sizeof(mimo_error), "解析失败");
     }
 }
 
@@ -768,24 +763,27 @@ static void create_menu_ui(void)
     mimo_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_label, "");
     lv_obj_set_style_text_font(mimo_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_label, LV_ALIGN_TOP_RIGHT, -10, 40);
+    lv_obj_align(mimo_label, LV_ALIGN_TOP_MID, 50, 40);
     lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo progress bar
     mimo_bar = lv_bar_create(lv_scr_act());
     lv_obj_set_size(mimo_bar, 120, 15);
-    lv_obj_align(mimo_bar, LV_ALIGN_TOP_RIGHT, -10, 80);
+    lv_obj_align(mimo_bar, LV_ALIGN_TOP_MID, 50, 65);
     lv_bar_set_range(mimo_bar, 0, 100);
     lv_bar_set_value(mimo_bar, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0xDDDDDD), 0);
     lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0x4CAF50), LV_PART_INDICATOR);
+    lv_obj_set_style_border_width(mimo_bar, 1, 0);
+    lv_obj_set_style_border_color(mimo_bar, lv_color_hex(0x999999), 0);
+    lv_obj_set_style_radius(mimo_bar, 3, 0);
     lv_obj_add_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo bar label (percentage text)
     mimo_bar_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_bar_label, "0%");
     lv_obj_set_style_text_font(mimo_bar_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar_label, LV_ALIGN_TOP_RIGHT, -10, 100);
+    lv_obj_align(mimo_bar_label, LV_ALIGN_TOP_MID, 50, 85);
     lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create OTA button label (bottom center, hidden by default)
