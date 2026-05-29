@@ -762,13 +762,13 @@ static void create_menu_ui(void)
     mimo_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_label, "");
     lv_obj_set_style_text_font(mimo_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_label, LV_ALIGN_RIGHT_MID, -10, -20);
+    lv_obj_align(mimo_label, LV_ALIGN_TOP_MID, 80, 40);
     lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo progress bar
     mimo_bar = lv_bar_create(lv_scr_act());
-    lv_obj_set_size(mimo_bar, 100, 15);
-    lv_obj_align(mimo_bar, LV_ALIGN_RIGHT_MID, -10, 20);
+    lv_obj_set_size(mimo_bar, 120, 15);
+    lv_obj_align(mimo_bar, LV_ALIGN_TOP_MID, 80, 80);
     lv_bar_set_range(mimo_bar, 0, 100);
     lv_bar_set_value(mimo_bar, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0xDDDDDD), 0);
@@ -779,7 +779,7 @@ static void create_menu_ui(void)
     mimo_bar_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_bar_label, "0%");
     lv_obj_set_style_text_font(mimo_bar_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar_label, LV_ALIGN_RIGHT_MID, -10, 40);
+    lv_obj_align(mimo_bar_label, LV_ALIGN_TOP_MID, 80, 100);
     lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create OTA button label (bottom center, hidden by default)
@@ -823,7 +823,7 @@ static void api_refresh_task(void *arg)
 {
     while(1) {
         vTaskDelay(pdMS_TO_TICKS(60000));
-        if (deepseek_page_active) {
+        if (deepseek_page_active && wifi_bsp_is_connected()) {
             if (Lvgl_lock(-1)) {
                 fetch_deepseek_info();
                 fetch_mimo_usage();
