@@ -470,7 +470,7 @@ static void fetch_mimo_usage(void)
     esp_tls_cfg_t cfg = {};
     cfg.crt_bundle_attach = esp_crt_bundle_attach;
     
-    tls = esp_tls_conn_http_new("https://platform.xiaomimimo.com/api/v1/tokenPlan/usage", &cfg);
+    tls = esp_tls_conn_http_new_sync("https://platform.xiaomimimo.com/api/v1/tokenPlan/usage", &cfg);
     if (tls == NULL) {
         snprintf(mimo_error, sizeof(mimo_error), "连接失败");
         ESP_LOGE(TAG, "MiMo TLS connection failed");
@@ -491,7 +491,7 @@ static void fetch_mimo_usage(void)
     int written = esp_tls_conn_write(tls, request, strlen(request));
     if (written < 0) {
         snprintf(mimo_error, sizeof(mimo_error), "发送请求失败");
-        esp_tls_conn_delete(tls);
+        esp_tls_conn_destroy(tls);
         return;
     }
     
@@ -504,7 +504,7 @@ static void fetch_mimo_usage(void)
         total_read += bytes_read;
     }
     response[total_read] = '\0';
-    esp_tls_conn_delete(tls);
+    esp_tls_conn_destroy(tls);
     
     // 解析HTTP状态码
     int status = 0;
