@@ -420,9 +420,11 @@ static esp_err_t mimo_usage_handler(esp_http_client_event_t *evt)
     switch (evt->event_id) {
         case HTTP_EVENT_ON_DATA:
             if (evt->data_len > 0 && evt->data_len < 1024) {
-                // Parse monthUsage percent
-                char *percent_start = strstr((char*)evt->data, "\"monthUsage\":{\"percent\":");
-                if (percent_start) {
+                // Parse usage percent (not monthUsage)
+                char *usage_start = strstr((char*)evt->data, "\"usage\":{\"percent\":");
+                if (usage_start) {
+                    char *percent_start = strstr(usage_start, "\"percent\":");
+                    if (percent_start) {
                     percent_start += 25;
                     char *percent_end = strchr(percent_start, ',');
                     if (percent_end) {
@@ -536,7 +538,7 @@ static void fetch_mimo_usage(void)
                 if (percent_start) {
                     percent_start += 10;
                     float percent = atof(percent_start);
-                    mimo_month_percent = (int)(percent * 100);
+                    mimo_month_percent = (int)(percent * 100 + 0.5f);
                 }
                 char *used_start = strstr(body, "\"name\":\"month_total_token\"");
                 if (used_start) {
@@ -651,7 +653,7 @@ static void update_deepseek_page(void)
     if (strlen(deepseek_error) > 0) {
         snprintf(ds_buf, sizeof(ds_buf), "DeepSeek\n\n错误: %s", deepseek_error);
     } else {
-        snprintf(ds_buf, sizeof(ds_buf), "DeepSeek\n\n余额: %s\nToken: 暂不支持", deepseek_balance);
+        snprintf(ds_buf, sizeof(ds_buf), "DeepSeek\n\n余额: %s", deepseek_balance);
     }
     if (deepseek_label) lv_label_set_text(deepseek_label, ds_buf);
     
@@ -774,16 +776,27 @@ static void create_menu_ui(void)
     
     // Create MiMo progress bar (square)
     mimo_bar = lv_bar_create(lv_scr_act());
-    lv_obj_set_size(mimo_bar, 150, 14);
-    lv_obj_align(mimo_bar, LV_ALIGN_TOP_LEFT, 190, 130);
+    lv_obj_set_size(mimo_bar, 130, 14);
+    lv_obj_align(mimo_bar, LV_ALIGN_TOP_LEFT, 205, 130);
     lv_bar_set_range(mimo_bar, 0, 100);
     lv_bar_set_value(mimo_bar, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0xDDDDDD), 0);
     lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0x4CAF50), LV_PART_INDICATOR);
-    lv_obj_set_style_border_width(mimo_bar, 1, 0);
-    lv_obj_set_style_border_color(mimo_bar, lv_color_hex(0x999999), 0);
     lv_obj_set_style_radius(mimo_bar, 0, 0);
     lv_obj_add_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
+    
+    // Bar brackets
+    lv_obj_t *bar_left = lv_label_create(lv_scr_act());
+    lv_label_set_text(bar_left, "[");
+    lv_obj_set_style_text_font(bar_left, &lv_font_MiSansLight_16, 0);
+    lv_obj_align(bar_left, LV_ALIGN_TOP_LEFT, 190, 130);
+    lv_obj_add_flag(bar_left, LV_OBJ_FLAG_HIDDEN);
+    
+    lv_obj_t *bar_right = lv_label_create(lv_scr_act());
+    lv_label_set_text(bar_right, "]");
+    lv_obj_set_style_text_font(bar_right, &lv_font_MiSansLight_16, 0);
+    lv_obj_align(bar_right, LV_ALIGN_TOP_LEFT, 337, 130);
+    lv_obj_add_flag(bar_right, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo bar label (percentage text)
     mimo_bar_label = lv_label_create(lv_scr_act());
