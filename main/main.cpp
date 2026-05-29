@@ -536,7 +536,8 @@ static void fetch_mimo_usage(void)
                 if (percent_start) {
                     percent_start += 10;
                     float percent = atof(percent_start);
-                    mimo_month_percent = (int)(percent * 100 + 0.5f);
+                    mimo_month_percent_f = percent * 100.0f;
+                    mimo_month_percent = (int)mimo_month_percent_f;
                 }
                 char *used_start = strstr(body, "\"name\":\"month_total_token\"");
                 if (used_start) {
