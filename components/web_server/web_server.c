@@ -8,10 +8,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "dev"
-#endif
-
 extern void ntp_set_server(const char* server);
 extern const char* ntp_get_server(void);
 extern void ntp_set_timezone(const char* tz);
@@ -22,6 +18,10 @@ extern void ntp_sync_now(void);
 extern const char* wifi_bsp_get_latest_version(void);
 
 static const char *TAG = "WebServer";
+
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "dev"
+#endif
 
 // URL解码函数
 static void url_decode(char *str) {
@@ -48,32 +48,18 @@ static void url_decode(char *str) {
     *p = '\0';
 }
 
-// 时区专用解码（保留+号）
-static void url_decode_tz(char *str) {
-    char *p = str;
-    char hex[3] = {0};
-    while (*str) {
-        if (*str == '%') {
-            if (str[1] && str[2]) {
-                hex[0] = str[1];
-                hex[1] = str[2];
-                *p = (char)strtol(hex, NULL, 16);
-                str += 3;
-            } else {
-                *p = *str++;
-            }
-        } else {
-            *p = *str++;
-        }
-        p++;
-    }
-    *p = '\0';
-}
+#define WEB_BUF_SIZE 8192
+#define OTA_UPLOAD_BUF_SIZE 4096
 
+static bool ota_in_progress = false;
+static char ota_status[128] = "";
+static char ota_url[256] = "";
+
+// ===== HTML模板 =====
 static const char* HTML_HEADER = "<!DOCTYPE html><html><head>"
     "<meta charset='UTF-8'>"
     "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
-    "<title>Funny ESP32 - LuCI</title>"
+    "<title>Funny ESP32</title>"
     "<style>"
     "*{margin:0;padding:0;box-sizing:border-box;}"
     "body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f5f5;color:#333;font-size:14px;}"
@@ -94,11 +80,12 @@ static const char* HTML_HEADER = "<!DOCTYPE html><html><head>"
     ".btn{display:inline-block;padding:8px 16px;border:none;border-radius:3px;cursor:pointer;font-size:13px;transition:background 0.2s;}"
     ".btn-primary{background:#4a90d9;color:white;}"
     ".btn-primary:hover{background:#357abd;}"
-    "input[type=text],input[type=password]{width:100%;padding:8px 12px;border:1px solid #ced4da;border-radius:3px;font-size:13px;transition:border-color 0.2s;}"
+    ".btn-success{background:#28a745;color:white;}"
+    ".btn-success:hover{background:#218838;}"
+    "input[type=text],input[type=password],input[type=file]{width:100%;padding:8px 12px;border:1px solid #ced4da;border-radius:3px;font-size:13px;transition:border-color 0.2s;}"
     "input[type=text]:focus,input[type=password]:focus{outline:none;border-color:#4a90d9;box-shadow:0 0 0 2px rgba(74,144,217,0.2);}"
     ".alert{padding:10px 14px;border-radius:3px;margin-bottom:16px;}"
     ".alert-success{background:#d4edda;color:#155724;border:1px solid #c3e6cb;}"
-    ".alert-warning{background:#fff3cd;color:#856404;border:1px solid #ffeeba;}"
     ".alert-danger{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;}"
     ".badge{display:inline-block;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:600;}"
     ".badge-success{background:#28a745;color:white;}"
@@ -106,24 +93,22 @@ static const char* HTML_HEADER = "<!DOCTYPE html><html><head>"
     ".form-group{margin-bottom:14px;}"
     ".form-group label{display:block;margin-bottom:4px;color:#495057;font-weight:500;}"
     ".footer{text-align:center;padding:20px;color:#6c757d;font-size:12px;}"
+    ".progress{height:20px;background:#e9ecef;border-radius:4px;overflow:hidden;margin:10px 0;}"
+    ".progress-bar{height:100%;background:#4a90d9;width:0%;transition:width 0.3s;}"
     "</style></head><body>"
-    "<div id='header'><h1>Funny ESP32</h1><span class='version'>LuCI 风格管理后台</span></div>"
+    "<div id='header'><h1>Funny ESP32</h1><span class='version'>%s</span></div>"
     "<div id='menubar'>"
-    "<a href='/' class='active'>状态</a>"
-    "<a href='/'>网络</a>"
-    "<a href='/'>系统</a>"
+    "<a href='/'>状态</a>"
+    "<a href='/network'>网络</a>"
+    "<a href='/ota'>固件</a>"
+    "<a href='/settings'>设置</a>"
     "</div>"
     "<div id='content'>";
 
 static const char* HTML_FOOTER = "<div class='footer'>Funny ESP32 &copy; 2026 | Powered by ESP-IDF</div>"
     "</div></body></html>";
 
-#define WEB_BUF_SIZE 8192
-
-static bool ota_in_progress = false;
-static char ota_status[128] = "";
-static char ota_url[256] = "";
-
+// ===== 页面：状态 =====
 static esp_err_t root_handler(httpd_req_t *req)
 {
     char *buf = malloc(WEB_BUF_SIZE);
@@ -133,9 +118,9 @@ static esp_err_t root_handler(httpd_req_t *req)
     }
     int len = 0;
     
-    len += snprintf(buf + len, WEB_BUF_SIZE - len, "%s", HTML_HEADER);
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, HTML_HEADER, FIRMWARE_VERSION);
     
-    // WiFi Status Container
+    // WiFi状态
     len += snprintf(buf + len, WEB_BUF_SIZE - len, 
         "<div class='container'><div class='header'><span class='icon'>&#128246;</span>WiFi 状态</div><div class='body'>"
         "<table class='table'>");
@@ -153,7 +138,37 @@ static esp_err_t root_handler(httpd_req_t *req)
     }
     len += snprintf(buf + len, WEB_BUF_SIZE - len, "</table></div></div>");
     
-    // WiFi Config Container
+    // 系统信息
+    const char* latest_ver = wifi_bsp_get_latest_version();
+    len += snprintf(buf + len, WEB_BUF_SIZE - len,
+        "<div class='container'><div class='header'><span class='icon'>&#128187;</span>系统信息</div><div class='body'>"
+        "<table class='table'>"
+        "<tr><th>当前版本</th><td>%s</td></tr>"
+        "<tr><th>最新版本</th><td>%s</td></tr>"
+        "</table></div></div>",
+        FIRMWARE_VERSION, latest_ver);
+    
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, "%s", HTML_FOOTER);
+    
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    httpd_resp_send(req, buf, len);
+    free(buf);
+    return ESP_OK;
+}
+
+// ===== 页面：网络 =====
+static esp_err_t network_handler(httpd_req_t *req)
+{
+    char *buf = malloc(WEB_BUF_SIZE);
+    if (!buf) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+        return ESP_FAIL;
+    }
+    int len = 0;
+    
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, HTML_HEADER, FIRMWARE_VERSION);
+    
+    // WiFi配置
     len += snprintf(buf + len, WEB_BUF_SIZE - len, 
         "<div class='container'><div class='header'><span class='icon'>&#128268;</span>WiFi 配置</div><div class='body'>"
         "<form action='/wifi' method='post'>"
@@ -162,7 +177,7 @@ static esp_err_t root_handler(httpd_req_t *req)
         "<button type='submit' class='btn btn-primary'>连接</button>"
         "</form></div></div>");
     
-    // AP Config Container
+    // AP配置
     len += snprintf(buf + len, WEB_BUF_SIZE - len, 
         "<div class='container'><div class='header'><span class='icon'>&#128225;</span>热点配置</div><div class='body'>"
         "<table class='table'><tr><th>热点名称</th><td>Funny_ESP32</td></tr></table>"
@@ -171,7 +186,74 @@ static esp_err_t root_handler(httpd_req_t *req)
         "<button type='submit' class='btn btn-primary'>修改密码</button>"
         "</form></div></div>");
     
-    // DeepSeek API Container
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, "%s", HTML_FOOTER);
+    
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    httpd_resp_send(req, buf, len);
+    free(buf);
+    return ESP_OK;
+}
+
+// ===== 页面：固件更新 =====
+static esp_err_t ota_handler_page(httpd_req_t *req)
+{
+    char *buf = malloc(WEB_BUF_SIZE);
+    if (!buf) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+        return ESP_FAIL;
+    }
+    int len = 0;
+    
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, HTML_HEADER, FIRMWARE_VERSION);
+    
+    // 远程OTA
+    const char* latest_ver = wifi_bsp_get_latest_version();
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, 
+        "<div class='container'><div class='header'><span class='icon'>&#128230;</span>远程更新</div><div class='body'>"
+        "<table class='table'>"
+        "<tr><th>当前版本</th><td>%s</td></tr>"
+        "<tr><th>最新版本</th><td>%s</td></tr>"
+        "</table>"
+        "<form action='/ota' method='post' style='margin-top:12px;'>"
+        "<button type='submit' class='btn btn-primary'%s>检查并更新</button>"
+        "</form>"
+        "%s</div></div>",
+        FIRMWARE_VERSION, latest_ver,
+        ota_in_progress ? " disabled" : "",
+        ota_status);
+    
+    // 本地OTA
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, 
+        "<div class='container'><div class='header'><span class='icon'>&#128190;</span>本地更新</div><div class='body'>"
+        "<p style='margin-bottom:12px;color:#6c757d;'>选择本地固件文件 (screen.bin) 进行更新</p>"
+        "<form action='/upload' method='post' enctype='multipart/form-data'>"
+        "<div class='form-group'><input type='file' name='firmware' accept='.bin' required></div>"
+        "<button type='submit' class='btn btn-success'>上传并更新</button>"
+        "</form>"
+        "<div id='upload-status'></div>"
+        "</div></div>");
+    
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, "%s", HTML_FOOTER);
+    
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    httpd_resp_send(req, buf, len);
+    free(buf);
+    return ESP_OK;
+}
+
+// ===== 页面：设置 =====
+static esp_err_t settings_handler(httpd_req_t *req)
+{
+    char *buf = malloc(WEB_BUF_SIZE);
+    if (!buf) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+        return ESP_FAIL;
+    }
+    int len = 0;
+    
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, HTML_HEADER, FIRMWARE_VERSION);
+    
+    // DeepSeek API
     const char* current_key = deepseek_get_api_key();
     len += snprintf(buf + len, WEB_BUF_SIZE - len, 
         "<div class='container'><div class='header'><span class='icon'>&#129302;</span>DeepSeek API</div><div class='body'>"
@@ -181,7 +263,7 @@ static esp_err_t root_handler(httpd_req_t *req)
         "</form></div></div>",
         current_key ? current_key : "");
     
-    // MiMo Cookie Container
+    // MiMo Cookie
     const char* current_cookie = mimo_get_cookie();
     len += snprintf(buf + len, WEB_BUF_SIZE - len, 
         "<div class='container'><div class='header'><span class='icon'>&#127850;</span>MiMo Cookie</div><div class='body'>"
@@ -191,7 +273,7 @@ static esp_err_t root_handler(httpd_req_t *req)
         "</form></div></div>",
         current_cookie ? current_cookie : "");
     
-    // NTP Config Container
+    // NTP配置
     len += snprintf(buf + len, WEB_BUF_SIZE - len, 
         "<div class='container'><div class='header'><span class='icon'>&#128339;</span>NTP 时间同步</div><div class='body'>"
         "<form action='/ntp' method='post'>"
@@ -205,23 +287,6 @@ static esp_err_t root_handler(httpd_req_t *req)
         "</form></div></div>",
         ntp_get_server(), ntp_get_timezone());
     
-    // OTA Update Container
-    const char* latest_ver = wifi_bsp_get_latest_version();
-    len += snprintf(buf + len, WEB_BUF_SIZE - len, 
-        "<div class='container'><div class='header'><span class='icon'>&#128230;</span>固件更新</div><div class='body'>"
-        "<table class='table'>"
-        "<tr><th>当前版本</th><td>%s</td></tr>"
-        "<tr><th>最新版本</th><td>%s</td></tr>"
-        "</table>"
-        "<form action='/ota' method='post' style='margin-top:12px;'>"
-        "<button type='submit' class='btn btn-primary'%s>检查并更新</button>"
-        "</form>"
-        "%s</div></div>",
-        FIRMWARE_VERSION,
-        latest_ver,
-        ota_in_progress ? " disabled" : "",
-        ota_status);
-    
     len += snprintf(buf + len, WEB_BUF_SIZE - len, "%s", HTML_FOOTER);
     
     httpd_resp_set_type(req, "text/html; charset=utf-8");
@@ -230,10 +295,11 @@ static esp_err_t root_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+// ===== 处理WiFi配置 =====
 static esp_err_t wifi_handler(httpd_req_t *req)
 {
     char buf[256];
-    int ret = httpd_req_recv(req, buf, WEB_BUF_SIZE - 1);
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
     if (ret <= 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
         return ESP_FAIL;
@@ -243,15 +309,13 @@ static esp_err_t wifi_handler(httpd_req_t *req)
     char ssid[33] = {0};
     char password[65] = {0};
     
-    // Parse form data
     char *ssid_start = strstr(buf, "ssid=");
     char *pwd_start = strstr(buf, "password=");
     
     if (ssid_start && pwd_start) {
-        ssid_start += 5; // skip "ssid="
-        pwd_start += 9;  // skip "password="
+        ssid_start += 5;
+        pwd_start += 9;
         
-        // Find end of ssid (before &)
         char *ssid_end = strchr(ssid_start, '&');
         if (ssid_end) {
             int ssid_len = ssid_end - ssid_start;
@@ -259,32 +323,26 @@ static esp_err_t wifi_handler(httpd_req_t *req)
             strncpy(ssid, ssid_start, ssid_len);
         }
         
-        // Copy password
         strncpy(password, pwd_start, 64);
         
-        // URL decode (simple version - replace + with space)
-        for (int i = 0; ssid[i]; i++) {
-            if (ssid[i] == '+') ssid[i] = ' ';
-        }
-        for (int i = 0; password[i]; i++) {
-            if (password[i] == '+') password[i] = ' ';
-        }
+        url_decode(ssid);
+        url_decode(password);
         
         ESP_LOGI(TAG, "New WiFi config: SSID=%s", ssid);
         wifi_bsp_connect(ssid, password);
     }
     
-    // Redirect back to root
     httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/network");
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
 
+// ===== 处理AP配置 =====
 static esp_err_t ap_handler(httpd_req_t *req)
 {
     char buf[256];
-    int ret = httpd_req_recv(req, buf, WEB_BUF_SIZE - 1);
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
     if (ret <= 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
         return ESP_FAIL;
@@ -292,33 +350,26 @@ static esp_err_t ap_handler(httpd_req_t *req)
     buf[ret] = '\0';
     
     char password[65] = {0};
-    
-    // Parse form data
     char *pwd_start = strstr(buf, "password=");
     if (pwd_start) {
-        pwd_start += 9;  // skip "password="
+        pwd_start += 9;
         strncpy(password, pwd_start, 64);
-        
-        // URL decode (simple version - replace + with space)
-        for (int i = 0; password[i]; i++) {
-            if (password[i] == '+') password[i] = ' ';
-        }
-        
+        url_decode(password);
         ESP_LOGI(TAG, "New AP password: %s", password);
         wifi_bsp_update_ap_password(password);
     }
     
-    // Redirect back to root
     httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/network");
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
 
+// ===== 处理DeepSeek API Key =====
 static esp_err_t apikey_handler(httpd_req_t *req)
 {
     char buf[256];
-    int ret = httpd_req_recv(req, buf, WEB_BUF_SIZE - 1);
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
     if (ret <= 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
         return ESP_FAIL;
@@ -326,77 +377,22 @@ static esp_err_t apikey_handler(httpd_req_t *req)
     buf[ret] = '\0';
     
     char apikey[65] = {0};
-    
-    // Parse form data
     char *apikey_start = strstr(buf, "apikey=");
     if (apikey_start) {
-        apikey_start += 7;  // skip "apikey="
+        apikey_start += 7;
         strncpy(apikey, apikey_start, 64);
-        
-        // URL decode (simple version - replace + with space)
-        for (int i = 0; apikey[i]; i++) {
-            if (apikey[i] == '+') apikey[i] = ' ';
-        }
-        
+        url_decode(apikey);
         ESP_LOGI(TAG, "New API key configured");
         deepseek_set_api_key(apikey);
     }
     
-    // Redirect back to root
     httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/settings");
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
 
-static esp_err_t ntp_handler(httpd_req_t *req)
-{
-    char buf[256];
-    int ret = httpd_req_recv(req, buf, WEB_BUF_SIZE - 1);
-    if (ret <= 0) {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
-        return ESP_FAIL;
-    }
-    buf[ret] = '\0';
-    
-    char server[64] = {0};
-    char timezone[32] = {0};
-    
-    // Parse form data
-    char *server_start = strstr(buf, "server=");
-    char *tz_start = strstr(buf, "timezone=");
-    
-    if (server_start && tz_start) {
-        server_start += 7;  // skip "server="
-        tz_start += 9;      // skip "timezone="
-        
-        // Find end of server (before &)
-        char *server_end = strchr(server_start, '&');
-        if (server_end) {
-            int len = server_end - server_start;
-            if (len > 63) len = 63;
-            strncpy(server, server_start, len);
-        }
-        
-        // Copy timezone
-        strncpy(timezone, tz_start, 31);
-        
-        // URL decode
-        url_decode(server);
-        url_decode_tz(timezone);  // 时区保留+号
-        
-        ESP_LOGI(TAG, "NTP config: server=%s, tz=%s", server, timezone);
-        ntp_set_server(server);
-        ntp_set_timezone(timezone);
-    }
-    
-    // Redirect back to root
-    httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", "/");
-    httpd_resp_send(req, NULL, 0);
-    return ESP_OK;
-}
-
+// ===== 处理MiMo Cookie =====
 static esp_err_t mimo_handler(httpd_req_t *req)
 {
     char buf[1024];
@@ -408,39 +404,84 @@ static esp_err_t mimo_handler(httpd_req_t *req)
     buf[ret] = '\0';
     
     char cookie[640] = {0};
-    
-    // Parse form data
     char *cookie_start = strstr(buf, "cookie=");
     if (cookie_start) {
         cookie_start += 7;
         strncpy(cookie, cookie_start, 639);
-        
-        // URL decode (cookie里+要转回空格)
         url_decode(cookie);
-        
         ESP_LOGI(TAG, "MiMo cookie updated, len=%d", strlen(cookie));
         mimo_set_cookie(cookie);
     }
     
-    // Redirect back to root
     httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/settings");
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
 
+// ===== 处理NTP配置 =====
+static esp_err_t ntp_handler(httpd_req_t *req)
+{
+    char buf[256];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    
+    char server[64] = {0};
+    char timezone[32] = {0};
+    
+    char *server_start = strstr(buf, "server=");
+    char *tz_start = strstr(buf, "timezone=");
+    
+    if (server_start && tz_start) {
+        server_start += 7;
+        tz_start += 9;
+        
+        char *server_end = strchr(server_start, '&');
+        if (server_end) {
+            int len = server_end - server_start;
+            if (len > 63) len = 63;
+            strncpy(server, server_start, len);
+        }
+        
+        strncpy(timezone, tz_start, 31);
+        
+        url_decode(server);
+        // 时区保留+号
+        for (int i = 0; timezone[i]; i++) {
+            if (timezone[i] == '%' && timezone[i+1] == '2' && timezone[i+2] == 'B') {
+                timezone[i] = '+';
+                memmove(&timezone[i+1], &timezone[i+3], strlen(&timezone[i+3]) + 1);
+            }
+        }
+        
+        ESP_LOGI(TAG, "NTP config: server=%s, tz=%s", server, timezone);
+        ntp_set_server(server);
+        ntp_set_timezone(timezone);
+    }
+    
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/settings");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
+// ===== 处理NTP同步 =====
 static esp_err_t sync_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Manual NTP sync requested");
     ntp_sync_now();
     
-    // Redirect back to root
     httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/settings");
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
 
+// ===== OTA任务 =====
 static void ota_task(void *arg)
 {
     char *url = (char*)arg;
@@ -506,87 +547,227 @@ static void ota_task(void *arg)
     vTaskDelete(NULL);
 }
 
+// ===== 处理远程OTA =====
 static esp_err_t ota_handler(httpd_req_t *req)
 {
     if (ota_in_progress) {
         httpd_resp_set_status(req, "302 Found");
-        httpd_resp_set_hdr(req, "Location", "/");
+        httpd_resp_set_hdr(req, "Location", "/ota");
         httpd_resp_send(req, NULL, 0);
         return ESP_OK;
     }
     
-    // 构建OTA URL (GitHub releases)
-    snprintf(ota_url, sizeof(ota_url), 
-        "https://luoyun.eu.org/firmware/screen.bin");
+    snprintf(ota_url, sizeof(ota_url), "https://luoyun.eu.org/firmware/screen.bin");
     
     ota_in_progress = true;
     snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>开始更新...</div>");
     
     xTaskCreate(ota_task, "ota_task", 8192, ota_url, 5, NULL);
     
-    // Redirect back to root
     httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/ota");
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
 
+// ===== 本地OTA任务 =====
+static void local_ota_task(void *arg)
+{
+    esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
+    if (!update_partition) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>找不到OTA分区</div>");
+        ota_in_progress = false;
+        vTaskDelete(NULL);
+        return;
+    }
+    
+    ESP_LOGI(TAG, "Writing to partition: %s at offset 0x%lx", update_partition->label, update_partition->address);
+    
+    esp_ota_handle_t update_handle = 0;
+    esp_err_t err = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
+    if (err != ESP_OK) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>OTA开始失败</div>");
+        ota_in_progress = false;
+        vTaskDelete(NULL);
+        return;
+    }
+    
+    // 读取共享缓冲区中的数据并写入
+    extern uint8_t *ota_upload_buf;
+    extern size_t ota_upload_len;
+    extern bool ota_upload_done;
+    extern bool ota_upload_success;
+    
+    size_t total_written = 0;
+    while (!ota_upload_done) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    
+    if (!ota_upload_success) {
+        esp_ota_abort(update_handle);
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>文件接收失败</div>");
+        ota_in_progress = false;
+        vTaskDelete(NULL);
+        return;
+    }
+    
+    // 数据已经在upload handler中写入
+    err = esp_ota_end(update_handle);
+    if (err != ESP_OK) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>OTA验证失败</div>");
+        ota_in_progress = false;
+        vTaskDelete(NULL);
+        return;
+    }
+    
+    err = esp_ota_set_boot_partition(update_partition);
+    if (err != ESP_OK) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>设置启动分区失败</div>");
+        ota_in_progress = false;
+        vTaskDelete(NULL);
+        return;
+    }
+    
+    snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>更新成功，重启中...</div>");
+    ESP_LOGI(TAG, "Local OTA success, restarting...");
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    esp_restart();
+}
+
+// 上传缓冲区
+static uint8_t *ota_upload_buf = NULL;
+static size_t ota_upload_len = 0;
+static bool ota_upload_done = false;
+static bool ota_upload_success = false;
+static esp_ota_handle_t ota_update_handle = 0;
+static const esp_partition_t *ota_update_partition = NULL;
+
+// ===== 处理本地OTA上传 =====
+static esp_err_t upload_handler(httpd_req_t *req)
+{
+    if (ota_in_progress) {
+        httpd_resp_set_status(req, "302 Found");
+        httpd_resp_set_hdr(req, "Location", "/ota");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
+    
+    ota_in_progress = true;
+    snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>正在接收固件...</div>");
+    
+    // 获取OTA分区
+    ota_update_partition = esp_ota_get_next_update_partition(NULL);
+    if (!ota_update_partition) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>找不到OTA分区</div>");
+        ota_in_progress = false;
+        httpd_resp_set_status(req, "302 Found");
+        httpd_resp_set_hdr(req, "Location", "/ota");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
+    
+    esp_err_t err = esp_ota_begin(ota_update_partition, OTA_SIZE_UNKNOWN, &ota_update_handle);
+    if (err != ESP_OK) {
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>OTA初始化失败</div>");
+        ota_in_progress = false;
+        httpd_resp_set_status(req, "302 Found");
+        httpd_resp_set_hdr(req, "Location", "/ota");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
+    
+    // 接收并写入数据
+    char buf[OTA_UPLOAD_BUF_SIZE];
+    int remaining = req->content_len;
+    size_t total_received = 0;
+    bool success = true;
+    
+    ESP_LOGI(TAG, "Receiving firmware, size=%d", remaining);
+    
+    while (remaining > 0) {
+        int to_read = remaining > sizeof(buf) ? sizeof(buf) : remaining;
+        int ret = httpd_req_recv(req, buf, to_read);
+        if (ret <= 0) {
+            success = false;
+            break;
+        }
+        
+        err = esp_ota_write(ota_update_handle, buf, ret);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "OTA write failed: %s", esp_err_to_name(err));
+            success = false;
+            break;
+        }
+        
+        total_received += ret;
+        remaining -= ret;
+        
+        // 更新进度
+        int percent = (total_received * 100) / req->content_len;
+        snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>接收中... %d%%</div>", percent);
+    }
+    
+    if (success && remaining == 0) {
+        err = esp_ota_end(ota_update_handle);
+        if (err == ESP_OK) {
+            err = esp_ota_set_boot_partition(ota_update_partition);
+            if (err == ESP_OK) {
+                snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-success'>更新成功，重启中...</div>");
+                ESP_LOGI(TAG, "Local OTA success! Received %d bytes", total_received);
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                esp_restart();
+            }
+        }
+    }
+    
+    esp_ota_abort(ota_update_handle);
+    snprintf(ota_status, sizeof(ota_status), "<div class='alert alert-danger'>更新失败</div>");
+    ota_in_progress = false;
+    
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/ota");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
+// ===== 初始化Web服务器 =====
 void web_server_init(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = 80;
+    config.max_uri_handlers = 16;
     
     httpd_handle_t server = NULL;
     if (httpd_start(&server, &config) == ESP_OK) {
-        httpd_uri_t root = {
-            .uri = "/",
-            .method = HTTP_GET,
-            .handler = root_handler
-        };
-        httpd_uri_t wifi = {
-            .uri = "/wifi",
-            .method = HTTP_POST,
-            .handler = wifi_handler
-        };
-        httpd_uri_t ap = {
-            .uri = "/ap",
-            .method = HTTP_POST,
-            .handler = ap_handler
-        };
-        httpd_uri_t apikey = {
-            .uri = "/apikey",
-            .method = HTTP_POST,
-            .handler = apikey_handler
-        };
-        httpd_uri_t ntp = {
-            .uri = "/ntp",
-            .method = HTTP_POST,
-            .handler = ntp_handler
-        };
-        httpd_uri_t mimo = {
-            .uri = "/mimo",
-            .method = HTTP_POST,
-            .handler = mimo_handler
-        };
-        httpd_uri_t sync = {
-            .uri = "/sync",
-            .method = HTTP_POST,
-            .handler = sync_handler
-        };
-        httpd_uri_t ota = {
-            .uri = "/ota",
-            .method = HTTP_POST,
-            .handler = ota_handler
-        };
+        // 页面路由
+        httpd_uri_t root = { .uri = "/", .method = HTTP_GET, .handler = root_handler };
+        httpd_uri_t network = { .uri = "/network", .method = HTTP_GET, .handler = network_handler };
+        httpd_uri_t ota_page = { .uri = "/ota", .method = HTTP_GET, .handler = ota_handler_page };
+        httpd_uri_t settings = { .uri = "/settings", .method = HTTP_GET, .handler = settings_handler };
+        
+        // 表单处理
+        httpd_uri_t wifi_post = { .uri = "/wifi", .method = HTTP_POST, .handler = wifi_handler };
+        httpd_uri_t ap_post = { .uri = "/ap", .method = HTTP_POST, .handler = ap_handler };
+        httpd_uri_t apikey_post = { .uri = "/apikey", .method = HTTP_POST, .handler = apikey_handler };
+        httpd_uri_t mimo_post = { .uri = "/mimo", .method = HTTP_POST, .handler = mimo_handler };
+        httpd_uri_t ntp_post = { .uri = "/ntp", .method = HTTP_POST, .handler = ntp_handler };
+        httpd_uri_t sync_post = { .uri = "/sync", .method = HTTP_POST, .handler = sync_handler };
+        httpd_uri_t ota_post = { .uri = "/ota", .method = HTTP_POST, .handler = ota_handler };
+        httpd_uri_t upload_post = { .uri = "/upload", .method = HTTP_POST, .handler = upload_handler };
         
         httpd_register_uri_handler(server, &root);
-        httpd_register_uri_handler(server, &wifi);
-        httpd_register_uri_handler(server, &ap);
-        httpd_register_uri_handler(server, &apikey);
-        httpd_register_uri_handler(server, &ntp);
-        httpd_register_uri_handler(server, &mimo);
-        httpd_register_uri_handler(server, &sync);
-        httpd_register_uri_handler(server, &ota);
+        httpd_register_uri_handler(server, &network);
+        httpd_register_uri_handler(server, &ota_page);
+        httpd_register_uri_handler(server, &settings);
+        httpd_register_uri_handler(server, &wifi_post);
+        httpd_register_uri_handler(server, &ap_post);
+        httpd_register_uri_handler(server, &apikey_post);
+        httpd_register_uri_handler(server, &mimo_post);
+        httpd_register_uri_handler(server, &ntp_post);
+        httpd_register_uri_handler(server, &sync_post);
+        httpd_register_uri_handler(server, &ota_post);
+        httpd_register_uri_handler(server, &upload_post);
+        
         ESP_LOGI(TAG, "Web server started on port 80");
     }
 }
