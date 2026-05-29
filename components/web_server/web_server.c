@@ -415,8 +415,8 @@ static esp_err_t mimo_handler(httpd_req_t *req)
         cookie_start += 7;
         strncpy(cookie, cookie_start, 639);
         
-        // URL decode (保留+号，只解码%xx)
-        url_decode_tz(cookie);
+        // URL decode (cookie里+要转回空格)
+        url_decode(cookie);
         
         ESP_LOGI(TAG, "MiMo cookie updated, len=%d", strlen(cookie));
         mimo_set_cookie(cookie);
