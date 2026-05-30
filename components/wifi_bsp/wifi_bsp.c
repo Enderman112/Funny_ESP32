@@ -42,23 +42,21 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
         case HTTP_EVENT_ON_FINISH:
             if (version_buffer) {
                 ESP_LOGI(TAG, "Response received: %d bytes", version_buffer_len);
-                // "tag_name": "v20260529-xxxxx"
+                // JSON格式: "tag_name": "v20260529-xxxxx"
                 char *tag_start = strstr(version_buffer, "\"tag_name\"");
                 if (tag_start) {
-                    // 跳过 "tag_name": " 到第一个引号后的值
-                    tag_start = strchr(tag_start, ':');
+                    tag_start += 11;       // 跳过 "tag_name"
+                    tag_start = strchr(tag_start, ':');  // 找冒号
                     if (tag_start) {
-                        tag_start = strchr(tag_start, '"');
-                        if (tag_start) {
-                            tag_start++;
-                            char *tag_end = strchr(tag_start, '"');
-                            if (tag_end) {
-                                int len = tag_end - tag_start;
-                                if (len > 31) len = 31;
-                                strncpy(latest_version, tag_start, len);
-                                latest_version[len] = '\0';
-                                ESP_LOGI(TAG, "Latest version: %s", latest_version);
-                            }
+                        tag_start++;       // 跳过冒号
+                        while (*tag_start == ' ' || *tag_start == '"') tag_start++;  // 跳过空格和引号
+                        char *tag_end = strchr(tag_start, '"');
+                        if (tag_end) {
+                            int len = tag_end - tag_start;
+                            if (len > 31) len = 31;
+                            strncpy(latest_version, tag_start, len);
+                            latest_version[len] = '\0';
+                            ESP_LOGI(TAG, "Latest version: %s", latest_version);
                         }
                     }
                 } else {

@@ -815,29 +815,29 @@ static void create_menu_ui(void)
     deepseek_label = lv_label_create(lv_scr_act());
     lv_label_set_text(deepseek_label, "");
     lv_obj_set_style_text_font(deepseek_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(deepseek_label, LV_ALIGN_TOP_LEFT, 15, 35);
+    lv_obj_align(deepseek_label, LV_ALIGN_TOP_LEFT, 15, 55);
     lv_obj_set_width(deepseek_label, 180);
     lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
     
-    // Create MiMo label (title only)
+    // Create MiMo label (title only - same Y as DeepSeek)
     mimo_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_label, "");
     lv_obj_set_style_text_font(mimo_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_label, LV_ALIGN_TOP_LEFT, 190, 35);
+    lv_obj_align(mimo_label, LV_ALIGN_TOP_LEFT, 190, 55);
     lv_obj_set_width(mimo_label, 200);
     lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
     
-    // Bar 1 label (monthly usage + percent)  above bar
+    // Bar 1 label (monthly usage + percent)
     mimo_bar1_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_bar1_label, "本月: 0.0B / 0.0B (0.0%)");
     lv_obj_set_style_text_font(mimo_bar1_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar1_label, LV_ALIGN_TOP_LEFT, 192, 65);
+    lv_obj_align(mimo_bar1_label, LV_ALIGN_TOP_LEFT, 190, 80);
     lv_obj_add_flag(mimo_bar1_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo progress bar 1 (monthly)
     mimo_bar1 = lv_bar_create(lv_scr_act());
     lv_obj_set_size(mimo_bar1, 140, 14);
-    lv_obj_align(mimo_bar1, LV_ALIGN_TOP_LEFT, 205, 90);
+    lv_obj_align(mimo_bar1, LV_ALIGN_TOP_LEFT, 190, 105);
     lv_bar_set_range(mimo_bar1, 0, 100);
     lv_bar_set_value(mimo_bar1, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(mimo_bar1, lv_color_hex(0xDDDDDD), 0);
@@ -850,17 +850,17 @@ static void create_menu_ui(void)
     lv_obj_set_style_border_color(mimo_bar1, lv_color_hex(0x666666), LV_PART_INDICATOR);
     lv_obj_add_flag(mimo_bar1, LV_OBJ_FLAG_HIDDEN);
     
-    // Bar 1 label (monthly usage + percent)
-    mimo_bar1_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(mimo_bar1_label, "本月: 0.0B / 0.0B (0.0%)");
-    lv_obj_set_style_text_font(mimo_bar1_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar1_label, LV_ALIGN_TOP_LEFT, 190, 65);
-    lv_obj_add_flag(mimo_bar1_label, LV_OBJ_FLAG_HIDDEN);
+    // Bar 2 label (total usage + percent)
+    mimo_bar2_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(mimo_bar2_label, "总套餐: 0.0B / 0.0B (0.0%)");
+    lv_obj_set_style_text_font(mimo_bar2_label, &lv_font_MiSansLight_16, 0);
+    lv_obj_align(mimo_bar2_label, LV_ALIGN_TOP_LEFT, 190, 130);
+    lv_obj_add_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo progress bar 2 (total)
     mimo_bar2 = lv_bar_create(lv_scr_act());
     lv_obj_set_size(mimo_bar2, 140, 14);
-    lv_obj_align(mimo_bar2, LV_ALIGN_TOP_LEFT, 205, 140);
+    lv_obj_align(mimo_bar2, LV_ALIGN_TOP_LEFT, 190, 155);
     lv_bar_set_range(mimo_bar2, 0, 100);
     lv_bar_set_value(mimo_bar2, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(mimo_bar2, lv_color_hex(0xDDDDDD), 0);
