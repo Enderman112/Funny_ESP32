@@ -551,12 +551,27 @@ static void fetch_mimo_usage(void)
             char *body = strstr(response, "\r\n\r\n");
             if (body) {
                 body += 4;
-                char *percent_start = strstr(body, "\"percent\":");
-                if (percent_start) {
-                    percent_start += 10;
-                    float percent = atof(percent_start);
-                    mimo_month_percent_f = percent * 100.0f;
-                    mimo_month_percent = (int)mimo_month_percent_f;
+                // 解析本月百分比 (monthUsage)
+                char *month_str = strstr(body, "\"monthUsage\":");
+                if (month_str) {
+                    char *percent_start = strstr(month_str, "\"percent\":");
+                    if (percent_start) {
+                        percent_start += 10;
+                        float percent = atof(percent_start);
+                        mimo_month_percent_f = percent * 100.0f;
+                        mimo_month_percent = (int)mimo_month_percent_f;
+                    }
+                }
+                // 解析总套餐百分比 (usage)
+                char *usage_str = strstr(body, "\"usage\":");
+                if (usage_str) {
+                    // 跳过 monthUsage 里的 "usage": 字段
+                    char *pct = strstr(usage_str, "\"percent\":");
+                    if (pct) {
+                        pct += 10;
+                        float percent = atof(pct);
+                        mimo_total_percent_f = percent * 100.0f;
+                    }
                 }
                 char *used_start = strstr(body, "\"name\":\"month_total_token\"");
                 if (used_start) {
