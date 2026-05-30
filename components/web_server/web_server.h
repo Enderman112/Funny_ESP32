@@ -13,6 +13,14 @@ void ntp_set_timezone(const char* tz);
 const char* ntp_get_timezone(void);
 void mimo_set_cookie(const char* cookie);
 const char* mimo_get_cookie(void);
+void weather_set_provider(int provider);
+int weather_get_provider(void);
+void weather_set_qweather_key(const char* key);
+const char* weather_get_qweather_key(void);
+void weather_set_openweather_key(const char* key);
+const char* weather_get_openweather_key(void);
+void weather_set_location(const char* loc);
+const char* weather_get_location(void);
 
 #ifdef __cplusplus
 }

@@ -353,7 +353,11 @@ static char deepseek_usage[32] = "未知";
 static char deepseek_error[64] = "";
 static char deepseek_api_key[65] = "";
 
-// MiMo state
+// Weather provider state
+static int weather_provider = 0;  // 0=none, 1=qweather, 2=openweather
+static char qweather_api_key[65] = "";
+static char openweather_api_key[65] = "";
+static char weather_location[32] = "101010100";  // 默认北京
 static char mimo_cookie[640] = "";
 static char mimo_month_used[32] = "未知";
 static char mimo_month_limit[32] = "未知";
@@ -733,6 +737,55 @@ void mimo_set_cookie(const char* cookie)
     mimo_cookie[sizeof(mimo_cookie) - 1] = '\0';
     nvs_save_string("mimo_cookie", mimo_cookie);
     ESP_LOGI(TAG, "MiMo cookie updated");
+}
+
+void weather_set_provider(int provider)
+{
+    weather_provider = provider;
+    char buf[4];
+    snprintf(buf, sizeof(buf), "%d", provider);
+    nvs_save_string("weather_prov", buf);
+}
+
+int weather_get_provider(void)
+{
+    return weather_provider;
+}
+
+void weather_set_qweather_key(const char* key)
+{
+    strncpy(qweather_api_key, key, sizeof(qweather_api_key) - 1);
+    qweather_api_key[sizeof(qweather_api_key) - 1] = '\0';
+    nvs_save_string("qweather_key", qweather_api_key);
+}
+
+const char* weather_get_qweather_key(void)
+{
+    return qweather_api_key;
+}
+
+void weather_set_openweather_key(const char* key)
+{
+    strncpy(openweather_api_key, key, sizeof(openweather_api_key) - 1);
+    openweather_api_key[sizeof(openweather_api_key) - 1] = '\0';
+    nvs_save_string("openweather_key", openweather_api_key);
+}
+
+const char* weather_get_openweather_key(void)
+{
+    return openweather_api_key;
+}
+
+void weather_set_location(const char* loc)
+{
+    strncpy(weather_location, loc, sizeof(weather_location) - 1);
+    weather_location[sizeof(weather_location) - 1] = '\0';
+    nvs_save_string("weather_loc", weather_location);
+}
+
+const char* weather_get_location(void)
+{
+    return weather_location;
 }
 
 const char* mimo_get_cookie(void)
@@ -1274,6 +1327,14 @@ extern "C" void app_main(void)
     nvs_load_string("mimo_cookie", mimo_cookie, sizeof(mimo_cookie));
     nvs_load_string("ntp_server", ntp_server, sizeof(ntp_server));
     nvs_load_string("ntp_tz", ntp_timezone, sizeof(ntp_timezone));
+    nvs_load_string("qweather_key", qweather_api_key, sizeof(qweather_api_key));
+    nvs_load_string("openweather_key", openweather_api_key, sizeof(openweather_api_key));
+    nvs_load_string("weather_loc", weather_location, sizeof(weather_location));
+    
+    // 读取天气提供商
+    char provider_str[4] = "0";
+    nvs_load_string("weather_prov", provider_str, sizeof(provider_str));
+    weather_provider = atoi(provider_str);
     
     ESP_LOGI(TAG, "Initializing display...");
     RlcdPort.RLCD_Init();

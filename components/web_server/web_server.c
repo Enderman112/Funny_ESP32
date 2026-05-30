@@ -17,6 +17,14 @@ extern void clock_set_show_seconds(bool show);
 extern bool clock_get_show_seconds(void);
 extern void ntp_sync_now(void);
 extern const char* wifi_bsp_get_latest_version(void);
+extern void weather_set_provider(int provider);
+extern int weather_get_provider(void);
+extern void weather_set_qweather_key(const char* key);
+extern const char* weather_get_qweather_key(void);
+extern void weather_set_openweather_key(const char* key);
+extern const char* weather_get_openweather_key(void);
+extern void weather_set_location(const char* loc);
+extern const char* weather_get_location(void);
 
 static const char *TAG = "WebServer";
 
@@ -288,6 +296,33 @@ static esp_err_t settings_handler(httpd_req_t *req)
         "</form></div></div>",
         ntp_get_server(), ntp_get_timezone());
     
+    // 天气配置
+    int provider = weather_get_provider();
+    const char* qweather_key = weather_get_qweather_key();
+    const char* openweather_key = weather_get_openweather_key();
+    const char* location = weather_get_location();
+    len += snprintf(buf + len, WEB_BUF_SIZE - len, 
+        "<div class='container'><div class='header'><span class='icon'>&#127782;</span>天气配置</div><div class='body'>"
+        "<form action='/weather' method='post'>"
+        "<div class='form-group'><label>天气提供商</label>"
+        "<select name='provider' style='width:100%%;padding:8px;border:1px solid #ced4da;border-radius:3px;'>"
+        "<option value='0'%s>关闭</option>"
+        "<option value='1'%s>和风天气</option>"
+        "<option value='2'%s>OpenWeatherMap</option>"
+        "</select></div>"
+        "<div class='form-group'><label>地区/城市ID</label><input type='text' name='location' value='%s'>"
+        "<small style='color:#6c757d;'>和风: 城市ID如101010100 | OW: 纬度,经度如39.9,116.4</small></div>"
+        "<div class='form-group'><label>和风天气 API Key</label><input type='password' name='qweather_key' value='%s' placeholder='粘贴Key'></div>"
+        "<div class='form-group'><label>OpenWeather API Key</label><input type='password' name='openweather_key' value='%s' placeholder='粘贴Key'></div>"
+        "<button type='submit' class='btn btn-primary'>保存</button>"
+        "</form></div></div>",
+        provider == 0 ? " selected" : "",
+        provider == 1 ? " selected" : "",
+        provider == 2 ? " selected" : "",
+        location ? location : "",
+        qweather_key ? qweather_key : "",
+        openweather_key ? openweather_key : "");
+    
     len += snprintf(buf + len, WEB_BUF_SIZE - len, "%s", HTML_FOOTER);
     
     httpd_resp_set_type(req, "text/html; charset=utf-8");
@@ -475,6 +510,84 @@ static esp_err_t sync_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Manual NTP sync requested");
     ntp_sync_now();
+    
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/settings");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
+static esp_err_t weather_handler(httpd_req_t *req)
+{
+    char buf[512];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    
+    char provider_str[4] = "0";
+    char location[32] = {0};
+    char qweather_key[65] = {0};
+    char openweather_key[65] = {0};
+    
+    // Parse provider
+    char *p = strstr(buf, "provider=");
+    if (p) {
+        p += 9;
+        char *end = strchr(p, '&');
+        if (end) {
+            int len = end - p;
+            if (len > 3) len = 3;
+            strncpy(provider_str, p, len);
+        }
+    }
+    
+    // Parse location
+    p = strstr(buf, "location=");
+    if (p) {
+        p += 9;
+        char *end = strchr(p, '&');
+        if (end) {
+            int len = end - p;
+            if (len > 31) len = 31;
+            strncpy(location, p, len);
+            url_decode(location);
+        }
+    }
+    
+    // Parse qweather_key
+    p = strstr(buf, "qweather_key=");
+    if (p) {
+        p += 13;
+        char *end = strchr(p, '&');
+        if (end) {
+            int len = end - p;
+            if (len > 64) len = 64;
+            strncpy(qweather_key, p, len);
+            url_decode(qweather_key);
+        }
+    }
+    
+    // Parse openweather_key
+    p = strstr(buf, "openweather_key=");
+    if (p) {
+        p += 16;
+        char *end = strchr(p, '&');
+        if (end) {
+            int len = end - p;
+            if (len > 64) len = 64;
+            strncpy(openweather_key, p, len);
+            url_decode(openweather_key);
+        }
+    }
+    
+    ESP_LOGI(TAG, "Weather config: provider=%s, loc=%s", provider_str, location);
+    weather_set_provider(atoi(provider_str));
+    if (strlen(location) > 0) weather_set_location(location);
+    if (strlen(qweather_key) > 0) weather_set_qweather_key(qweather_key);
+    if (strlen(openweather_key) > 0) weather_set_openweather_key(openweather_key);
     
     httpd_resp_set_status(req, "302 Found");
     httpd_resp_set_hdr(req, "Location", "/settings");
@@ -760,6 +873,7 @@ void web_server_init(void)
         httpd_uri_t mimo_post = { .uri = "/mimo", .method = HTTP_POST, .handler = mimo_handler };
         httpd_uri_t ntp_post = { .uri = "/ntp", .method = HTTP_POST, .handler = ntp_handler };
         httpd_uri_t sync_post = { .uri = "/sync", .method = HTTP_POST, .handler = sync_handler };
+        httpd_uri_t weather_post = { .uri = "/weather", .method = HTTP_POST, .handler = weather_handler };
         httpd_uri_t ota_post = { .uri = "/ota", .method = HTTP_POST, .handler = ota_handler };
         httpd_uri_t upload_post = { .uri = "/upload", .method = HTTP_POST, .handler = upload_handler };
         
@@ -773,6 +887,7 @@ void web_server_init(void)
         httpd_register_uri_handler(server, &mimo_post);
         httpd_register_uri_handler(server, &ntp_post);
         httpd_register_uri_handler(server, &sync_post);
+        httpd_register_uri_handler(server, &weather_post);
         httpd_register_uri_handler(server, &ota_post);
         httpd_register_uri_handler(server, &upload_post);
         
