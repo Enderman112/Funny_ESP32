@@ -237,17 +237,34 @@ static void fetch_saying(void)
         ESP_LOGI(TAG, "Saying API status: %d, response: %s", status, saying_buf);
         if (status == 200 && strlen(saying_buf) > 0) {
             char *text_start = strstr(saying_buf, "\"text\":\"");
-            if (text_start) {
-                text_start += 8;
-                char *text_end = strchr(text_start, '"');
-                if (text_end) {
-                    int tlen = text_end - text_start;
-                    if (tlen > 127) tlen = 127;
-                    strncpy(saying_text, text_start, tlen);
-                    saying_text[tlen] = '\0';
-                    ESP_LOGI(TAG, "Saying: %s", saying_text);
+                if (text_start) {
+                    text_start += 8;
+                    char *text_end = strchr(text_start, '"');
+                    if (text_end) {
+                        int tlen = text_end - text_start;
+                        if (tlen > 127) tlen = 127;
+                        strncpy(saying_text, text_start, tlen);
+                        saying_text[tlen] = '\0';
+                        // 替换中文标点为ASCII
+                        for (int i = 0; saying_text[i]; i++) {
+                            if (saying_text[i] == '\xEF') {
+                                // UTF-8中文标点 3字节
+                                if (i + 2 < tlen) {
+                                    uint8_t b1 = saying_text[i+1];
+                                    uint8_t b2 = saying_text[i+2];
+                                    // ，。！？、；：""''（）
+                                    if (b1 == 0xBC && b2 == 0x8C) { saying_text[i]=','; memmove(&saying_text[i+1],&saying_text[i+3],tlen-i-3); tlen-=2; }
+                                    else if (b1 == 0xB7 && b2 == 0x80) { saying_text[i]='.'; memmove(&saying_text[i+1],&saying_text[i+3],tlen-i-3); tlen-=2; }
+                                    else if (b1 == 0xBC && b2 == 0x81) { saying_text[i]='!'; memmove(&saying_text[i+1],&saying_text[i+3],tlen-i-3); tlen-=2; }
+                                    else if (b1 == 0xBC && b2 == 0x9F) { saying_text[i]='?'; memmove(&saying_text[i+1],&saying_text[i+3],tlen-i-3); tlen-=2; }
+                                    else if (b1 == 0xB7 && b2 == 0x81) { saying_text[i]=' '; memmove(&saying_text[i+1],&saying_text[i+3],tlen-i-3); tlen-=2; }
+                                }
+                            }
+                        }
+                        saying_text[tlen] = '\0';
+                        ESP_LOGI(TAG, "Saying: %s", saying_text);
+                    }
                 }
-            }
         }
     }
     
