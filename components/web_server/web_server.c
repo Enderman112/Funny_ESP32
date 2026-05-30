@@ -4,6 +4,7 @@
 #include "esp_https_ota.h"
 #include "esp_ota_ops.h"
 #include "esp_crt_bundle.h"
+#include "esp_wifi.h"
 #include "wifi_bsp.h"
 #include <string.h>
 #include <stdio.h>
@@ -487,6 +488,9 @@ static void ota_task(void *arg)
     char *url = (char*)arg;
     int max_retries = 3;
     int retry = 0;
+    
+    // 关闭WiFi省电模式，避免长时间下载时断连
+    esp_wifi_set_ps(WIFI_PS_NONE);
     
     while (retry < max_retries) {
         ESP_LOGI(TAG, "OTA attempt %d/%d from: %s", retry + 1, max_retries, url);
