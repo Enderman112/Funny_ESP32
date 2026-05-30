@@ -33,6 +33,12 @@ DisplayPort RlcdPort(RLCD_MOSI_PIN, RLCD_SCK_PIN, RLCD_DC_PIN, RLCD_CS_PIN, RLCD
 
 // Clock state
 static lv_obj_t *clock_label = NULL;
+static lv_obj_t *hello_clock_label = NULL;  // 大时钟
+static lv_obj_t *hello_date_label = NULL;   // 日期
+static lv_obj_t *hello_week_label = NULL;   // 星期
+static lv_obj_t *hello_saying_label = NULL; // 一言
+static char saying_text[128] = "";
+static int last_saying_day = 0;
 static bool clock_show_seconds = true;
 static bool ntp_synced = false;
 static char ntp_server[64] = "ntp.aliyun.com";
@@ -195,10 +201,97 @@ static void clock_task(void *arg)
 {
     while(1) {
         if (Lvgl_lock(-1)) {
-            update_clock();
+            if (!info_page_active && !deepseek_page_active && !menu_visible) {
+                update_hello_page();
+            }
             Lvgl_unlock();
         }
         vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+// 获取每日一言
+static void fetch_saying(void)
+{
+    esp_http_client_config_t config = {};
+    config.url = "https://uapis.cn/api/v1/saying";
+    config.timeout_ms = 5000;
+    config.crt_bundle_attach = esp_crt_bundle_attach;
+    
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_http_client_set_header(client, "Accept", "application/json");
+    esp_err_t err = esp_http_client_perform(client);
+    
+    if (err == ESP_OK) {
+        int status = esp_http_client_get_status_code(client);
+        if (status == 200) {
+            // 读取响应
+            char buf[256] = {0};
+            int len = esp_http_client_read(client, buf, sizeof(buf) - 1);
+            if (len > 0) {
+                buf[len] = '\0';
+                // 解析JSON: {"text":"..."}
+                char *text_start = strstr(buf, "\"text\":\"");
+                if (text_start) {
+                    text_start += 8;
+                    char *text_end = strchr(text_start, '"');
+                    if (text_end) {
+                        int tlen = text_end - text_start;
+                        if (tlen > 127) tlen = 127;
+                        strncpy(saying_text, text_start, tlen);
+                        saying_text[tlen] = '\0';
+                        ESP_LOGI(TAG, "Saying: %s", saying_text);
+                    }
+                }
+            }
+        }
+    }
+    esp_http_client_cleanup(client);
+}
+
+// 更新Hello World页面
+static void update_hello_page(void)
+{
+    if (!hello_clock_label) return;
+    
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    
+    if (timeinfo.tm_year < (2016 - 1900)) {
+        lv_label_set_text(hello_clock_label, "--:--:--");
+        lv_label_set_text(hello_date_label, "----/--/--");
+        lv_label_set_text(hello_week_label, "---");
+    } else {
+        // 大时钟
+        char time_buf[16];
+        snprintf(time_buf, sizeof(time_buf), "%02d:%02d:%02d",
+                 timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        lv_label_set_text(hello_clock_label, time_buf);
+        
+        // 日期
+        char date_buf[16];
+        snprintf(date_buf, sizeof(date_buf), "%04d/%02d/%02d",
+                 timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday);
+        lv_label_set_text(hello_date_label, date_buf);
+        
+        // 星期
+        const char* weekdays[] = {"周日", "周一", "周二", "周三", "周四", "周五", "周六"};
+        char week_buf[16];
+        snprintf(week_buf, sizeof(week_buf), "%s  DAY %d", weekdays[timeinfo.tm_wday], timeinfo.tm_yday + 1);
+        lv_label_set_text(hello_week_label, week_buf);
+        
+        // 检查是否需要刷新一言（每天一次）
+        int today = timeinfo.tm_mday;
+        if (today != last_saying_day) {
+            last_saying_day = today;
+            fetch_saying();
+        }
+    }
+    
+    if (hello_saying_label) {
+        lv_label_set_text(hello_saying_label, saying_text);
     }
 }
 
@@ -735,10 +828,14 @@ static void execute_menu_item(void)
 {
     if (Lvgl_lock(-1)) {
         switch (menu_selected) {
-            case 0: // Hello World
+            case 0: // Hello World (大时钟)
                 info_page_active = false;
                 deepseek_page_active = false;
-                lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(hello_clock_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar1, LV_OBJ_FLAG_HIDDEN);
@@ -746,12 +843,15 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(mimo_bar2, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_set_style_text_font(hello_label, &lv_font_montserrat_28, 0);
-                lv_label_set_text(hello_label, "Hello World!");
+                update_hello_page();
                 break;
             case 1: // Info
                 info_page_active = true;
                 deepseek_page_active = false;
+                lv_obj_add_flag(hello_clock_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
@@ -766,6 +866,10 @@ static void execute_menu_item(void)
             case 2: // API用量
                 info_page_active = false;
                 deepseek_page_active = true;
+                lv_obj_add_flag(hello_clock_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
@@ -799,17 +903,42 @@ static void show_menu(void)
 
 static void create_menu_ui(void)
 {
-    // Create clock label (left-top corner)
-    clock_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(clock_label, "--:--:--");
-    lv_obj_set_style_text_font(clock_label, &lv_font_montserrat_28, 0);
-    lv_obj_align(clock_label, LV_ALIGN_TOP_LEFT, 10, 10);
+    // 大时钟（居中偏上）
+    hello_clock_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(hello_clock_label, "--:--:--");
+    lv_obj_set_style_text_font(hello_clock_label, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_color(hello_clock_label, lv_color_hex(0x000000), 0);
+    lv_obj_align(hello_clock_label, LV_ALIGN_CENTER, 0, -25);
+    
+    // 日期（时钟上方）
+    hello_date_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(hello_date_label, "----/--/--");
+    lv_obj_set_style_text_font(hello_date_label, &lv_font_MiSansLight_16, 0);
+    lv_obj_set_style_text_color(hello_date_label, lv_color_hex(0x444444), 0);
+    lv_obj_align(hello_date_label, LV_ALIGN_CENTER, 0, -55);
+    
+    // 星期（时钟下方）
+    hello_week_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(hello_week_label, "---");
+    lv_obj_set_style_text_font(hello_week_label, &lv_font_MiSansLight_16, 0);
+    lv_obj_set_style_text_color(hello_week_label, lv_color_hex(0x444444), 0);
+    lv_obj_align(hello_week_label, LV_ALIGN_CENTER, 0, 5);
+    
+    // 一言（最下方，窄宽度方便换行）
+    hello_saying_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(hello_saying_label, "");
+    lv_obj_set_style_text_font(hello_saying_label, &lv_font_MiSansLight_16, 0);
+    lv_obj_set_style_text_color(hello_saying_label, lv_color_hex(0x666666), 0);
+    lv_obj_align(hello_saying_label, LV_ALIGN_CENTER, 0, 55);
+    lv_obj_set_width(hello_saying_label, 360);
+    lv_obj_set_style_text_align(hello_saying_label, LV_TEXT_ALIGN_CENTER, 0);
     
     // Create main label (default page - English only)
     hello_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_label, "Hello World!");
     lv_obj_set_style_text_font(hello_label, &lv_font_montserrat_28, 0);
     lv_obj_align(hello_label, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create DeepSeek label (left side, hidden by default)
     deepseek_label = lv_label_create(lv_scr_act());
