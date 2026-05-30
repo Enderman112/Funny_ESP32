@@ -29,10 +29,10 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
             if (evt->data_len > 0) {
                 // 累积数据
                 if (version_buffer == NULL) {
-                    version_buffer = malloc(2048);
+                    version_buffer = malloc(8192);
                     version_buffer_len = 0;
                 }
-                if (version_buffer && version_buffer_len + evt->data_len < 2048) {
+                if (version_buffer && version_buffer_len + evt->data_len < 8192) {
                     memcpy(version_buffer + version_buffer_len, evt->data, evt->data_len);
                     version_buffer_len += evt->data_len;
                     version_buffer[version_buffer_len] = '\0';
@@ -41,8 +41,10 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
             break;
         case HTTP_EVENT_ON_FINISH:
             if (version_buffer) {
+                ESP_LOGI(TAG, "Response received: %d bytes", version_buffer_len);
                 char *tag_start = strstr(version_buffer, "\"tag_name\":");
                 if (tag_start) {
+                    // 跳过 "tag_name": " 找到引号内的值
                     tag_start = strchr(tag_start, '"');
                     if (tag_start) {
                         tag_start = strchr(tag_start + 1, '"');
@@ -58,6 +60,8 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
                             }
                         }
                     }
+                } else {
+                    ESP_LOGW(TAG, "tag_name not found in response");
                 }
                 free(version_buffer);
                 version_buffer = NULL;
