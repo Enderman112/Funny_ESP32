@@ -200,12 +200,33 @@ static void update_clock(void)
 // clock_task 移到 update_hello_page 之后定义
 
 // 获取每日一言
+// 一言HTTP回调
+static char saying_buf[256] = {0};
+
+static esp_err_t saying_http_handler(esp_http_client_event_t *evt)
+{
+    switch (evt->event_id) {
+        case HTTP_EVENT_ON_DATA:
+            if (evt->data_len > 0 && evt->data_len < 256) {
+                memcpy(saying_buf, evt->data, evt->data_len);
+                saying_buf[evt->data_len] = '\0';
+            }
+            break;
+        default:
+            break;
+    }
+    return ESP_OK;
+}
+
 static void fetch_saying(void)
 {
+    saying_buf[0] = '\0';
+    
     esp_http_client_config_t config = {};
     config.url = "https://uapis.cn/api/v1/saying";
     config.timeout_ms = 5000;
     config.crt_bundle_attach = esp_crt_bundle_attach;
+    config.event_handler = saying_http_handler;
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "Accept", "application/json");
@@ -213,24 +234,25 @@ static void fetch_saying(void)
     
     if (err == ESP_OK) {
         int status = esp_http_client_get_status_code(client);
-        if (status == 200) {
-            // 读取响应
-            char buf[256] = {0};
-            int len = esp_http_client_read(client, buf, sizeof(buf) - 1);
-            if (len > 0) {
-                buf[len] = '\0';
-                // 解析JSON: {"text":"..."}
-                char *text_start = strstr(buf, "\"text\":\"");
-                if (text_start) {
-                    text_start += 8;
-                    char *text_end = strchr(text_start, '"');
-                    if (text_end) {
-                        int tlen = text_end - text_start;
-                        if (tlen > 127) tlen = 127;
-                        strncpy(saying_text, text_start, tlen);
-                        saying_text[tlen] = '\0';
-                        ESP_LOGI(TAG, "Saying: %s", saying_text);
-                    }
+        ESP_LOGI(TAG, "Saying API status: %d, response: %s", status, saying_buf);
+        if (status == 200 && strlen(saying_buf) > 0) {
+            char *text_start = strstr(saying_buf, "\"text\":\"");
+            if (text_start) {
+                text_start += 8;
+                char *text_end = strchr(text_start, '"');
+                if (text_end) {
+                    int tlen = text_end - text_start;
+                    if (tlen > 127) tlen = 127;
+                    strncpy(saying_text, text_start, tlen);
+                    saying_text[tlen] = '\0';
+                    ESP_LOGI(TAG, "Saying: %s", saying_text);
+                }
+            }
+        }
+    }
+    
+    esp_http_client_cleanup(client);
+}
                 }
             }
         }
