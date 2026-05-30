@@ -305,7 +305,13 @@ static void clock_task(void *arg)
     bool saying_fetched = false;
     while(1) {
         if (Lvgl_lock(-1)) {
-            update_hello_page();
+            if (info_page_active || deepseek_page_active || menu_visible) {
+                // 其他页面：显示小钟
+                update_clock();
+            } else {
+                // Hello World页面：显示大钟
+                update_hello_page();
+            }
             Lvgl_unlock();
         }
         
