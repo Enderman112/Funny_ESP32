@@ -857,6 +857,7 @@ static void execute_menu_item(void)
             case 0: // Hello World (大时钟)
                 info_page_active = false;
                 deepseek_page_active = false;
+                lv_obj_add_flag(clock_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_clock_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
@@ -874,6 +875,7 @@ static void execute_menu_item(void)
             case 1: // Info
                 info_page_active = true;
                 deepseek_page_active = false;
+                lv_obj_clear_flag(clock_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_clock_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
@@ -892,6 +894,7 @@ static void execute_menu_item(void)
             case 2: // API用量
                 info_page_active = false;
                 deepseek_page_active = true;
+                lv_obj_clear_flag(clock_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_clock_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
@@ -929,6 +932,13 @@ static void show_menu(void)
 
 static void create_menu_ui(void)
 {
+    // 小时钟（左上角，用于其他页面）
+    clock_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(clock_label, "--:--:--");
+    lv_obj_set_style_text_font(clock_label, &lv_font_montserrat_28, 0);
+    lv_obj_align(clock_label, LV_ALIGN_TOP_LEFT, 10, 10);
+    lv_obj_add_flag(clock_label, LV_OBJ_FLAG_HIDDEN);
+    
     // 大时钟（居中偏上）
     hello_clock_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_clock_label, "--:--:--");
