@@ -852,7 +852,7 @@ static void create_menu_ui(void)
     lv_obj_set_style_bg_color(mimo_bar1, lv_color_hex(0xDDDDDD), 0);
     lv_obj_set_style_bg_color(mimo_bar1, lv_color_hex(0x4CAF50), LV_PART_INDICATOR);
     lv_obj_set_style_radius(mimo_bar1, 0, 0);
-    lv_obj_set_style_radius(mimo_bar1, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(mimo_bar1, 0, LV_PART_INDICATOR);
     lv_obj_add_flag(mimo_bar1, LV_OBJ_FLAG_HIDDEN);
     
     // Bar 1 brackets
@@ -884,7 +884,7 @@ static void create_menu_ui(void)
     lv_obj_set_style_bg_color(mimo_bar2, lv_color_hex(0xDDDDDD), 0);
     lv_obj_set_style_bg_color(mimo_bar2, lv_color_hex(0x2196F3), LV_PART_INDICATOR);
     lv_obj_set_style_radius(mimo_bar2, 0, 0);
-    lv_obj_set_style_radius(mimo_bar2, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(mimo_bar2, 0, LV_PART_INDICATOR);
     lv_obj_add_flag(mimo_bar2, LV_OBJ_FLAG_HIDDEN);
     
     // Bar 2 brackets
