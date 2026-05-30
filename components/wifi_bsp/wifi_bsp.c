@@ -42,14 +42,13 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
         case HTTP_EVENT_ON_FINISH:
             if (version_buffer) {
                 ESP_LOGI(TAG, "Response received: %d bytes", version_buffer_len);
-                // "tag_name": "v20260529-xxxxx"
+                // "tag_name": "v20260529-xxxxx"  (键名9字符: "tag_name)
                 char *tag_start = strstr(version_buffer, "\"tag_name\"");
                 if (tag_start) {
-                    tag_start += 10;                    // 跳过 "tag_name
-                    tag_start = strchr(tag_start, '"'); // 找 "tag_name" 的结尾引号
-                    tag_start = strchr(tag_start + 1, '"'); // 找值的开头引号
+                    tag_start += 9;                     // 跳到 "tag_name 的结尾 "
+                    tag_start = strchr(tag_start + 1, '"'); // 跳过结尾的 "，找值的开头 "
                     if (tag_start) {
-                        tag_start++;
+                        tag_start++;                    // 跳过值的开头 "
                         char *tag_end = strchr(tag_start, '"');
                         if (tag_end) {
                             int len = tag_end - tag_start;
