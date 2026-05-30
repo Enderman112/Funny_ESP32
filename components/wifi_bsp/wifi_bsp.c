@@ -42,12 +42,13 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
         case HTTP_EVENT_ON_FINISH:
             if (version_buffer) {
                 ESP_LOGI(TAG, "Response received: %d bytes", version_buffer_len);
-                char *tag_start = strstr(version_buffer, "\"tag_name\":");
+                // "tag_name": "v20260529-xxxxx"
+                char *tag_start = strstr(version_buffer, "\"tag_name\"");
                 if (tag_start) {
-                    // 跳过 "tag_name": " 找到引号内的值
-                    tag_start = strchr(tag_start, '"');
+                    // 跳过 "tag_name": " 到第一个引号后的值
+                    tag_start = strchr(tag_start, ':');
                     if (tag_start) {
-                        tag_start = strchr(tag_start + 1, '"');
+                        tag_start = strchr(tag_start, '"');
                         if (tag_start) {
                             tag_start++;
                             char *tag_end = strchr(tag_start, '"');
