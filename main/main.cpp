@@ -260,14 +260,14 @@ static void update_hello_page(void)
         lv_label_set_text(hello_clock_label, time_buf);
         
         // 日期
-        char date_buf[20];
+        char date_buf[32];
         snprintf(date_buf, sizeof(date_buf), "%04d/%02d/%02d",
                  timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday);
         lv_label_set_text(hello_date_label, date_buf);
         
         // 星期
         const char* weekdays[] = {"周日", "周一", "周二", "周三", "周四", "周五", "周六"};
-        char week_buf[24];
+        char week_buf[32];
         snprintf(week_buf, sizeof(week_buf), "%s  DAY %d", weekdays[timeinfo.tm_wday], timeinfo.tm_yday + 1);
         lv_label_set_text(hello_week_label, week_buf);
         
