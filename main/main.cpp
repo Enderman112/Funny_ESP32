@@ -906,7 +906,7 @@ static void create_menu_ui(void)
     // 大时钟（居中偏上）
     hello_clock_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_clock_label, "--:--:--");
-    lv_obj_set_style_text_font(hello_clock_label, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_font(hello_clock_label, &lv_font_montserrat_48, 0);
     lv_obj_set_style_text_color(hello_clock_label, lv_color_hex(0x000000), 0);
     lv_obj_align(hello_clock_label, LV_ALIGN_CENTER, 0, -25);
     
@@ -915,21 +915,21 @@ static void create_menu_ui(void)
     lv_label_set_text(hello_date_label, "----/--/--");
     lv_obj_set_style_text_font(hello_date_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_date_label, lv_color_hex(0x444444), 0);
-    lv_obj_align(hello_date_label, LV_ALIGN_CENTER, 0, -55);
+    lv_obj_align(hello_date_label, LV_ALIGN_CENTER, 0, -65);
     
     // 星期（时钟下方）
     hello_week_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_week_label, "---");
     lv_obj_set_style_text_font(hello_week_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_week_label, lv_color_hex(0x444444), 0);
-    lv_obj_align(hello_week_label, LV_ALIGN_CENTER, 0, 5);
+    lv_obj_align(hello_week_label, LV_ALIGN_CENTER, 0, 20);
     
-    // 一言（最下方，窄宽度方便换行）
+    // 一言（最下方）
     hello_saying_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(hello_saying_label, "");
+    lv_label_set_text(hello_saying_label, "...");
     lv_obj_set_style_text_font(hello_saying_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_saying_label, lv_color_hex(0x666666), 0);
-    lv_obj_align(hello_saying_label, LV_ALIGN_CENTER, 0, 55);
+    lv_obj_align(hello_saying_label, LV_ALIGN_CENTER, 0, 70);
     lv_obj_set_width(hello_saying_label, 360);
     lv_obj_set_style_text_align(hello_saying_label, LV_TEXT_ALIGN_CENTER, 0);
     
@@ -1266,8 +1266,9 @@ extern "C" void app_main(void)
     xTaskCreatePinnedToCore(button_task, "button_task", 8 * 1024, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(clock_task, "clock_task", 8 * 1024, NULL, 3, NULL, 1);
     xTaskCreatePinnedToCore(ntp_task, "ntp_task", 4 * 1024, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(api_refresh_task, "api_refresh", 8 * 1024, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(status_bar_task, "status_bar", 4 * 1024, NULL, 2, NULL, 1);
+    
+    // 启动后立即获取一言
+    fetch_saying();
     
     ESP_LOGI(TAG, "Menu system ready!");
     ESP_LOGI(TAG, "Web admin: http://[IP]");
