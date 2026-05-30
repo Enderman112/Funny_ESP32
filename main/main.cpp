@@ -247,6 +247,8 @@ static lv_obj_t *deepseek_label = NULL;
 static lv_obj_t *mimo_label = NULL;
 static lv_obj_t *mimo_bar = NULL;
 static lv_obj_t *mimo_bar_label = NULL;
+static lv_obj_t *mimo_bar_left = NULL;
+static lv_obj_t *mimo_bar_right = NULL;
 static lv_obj_t *ota_btn_label = NULL;
 
 // Status bar labels
@@ -662,6 +664,8 @@ static void update_deepseek_page(void)
         snprintf(mimo_buf, sizeof(mimo_buf), "MiMo\n\n错误: %s", mimo_error);
         if (mimo_bar) lv_obj_add_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
         if (mimo_bar_label) lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
+        if (mimo_bar_left) lv_obj_add_flag(mimo_bar_left, LV_OBJ_FLAG_HIDDEN);
+        if (mimo_bar_right) lv_obj_add_flag(mimo_bar_right, LV_OBJ_FLAG_HIDDEN);
     } else {
         // 格式化为 x.xB/x.xB
         float used_b = atof(mimo_month_used) / 1000000000.0f;
@@ -671,6 +675,8 @@ static void update_deepseek_page(void)
             lv_bar_set_value(mimo_bar, (int)mimo_month_percent_f, LV_ANIM_OFF);
             lv_obj_clear_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
         }
+        if (mimo_bar_left) lv_obj_clear_flag(mimo_bar_left, LV_OBJ_FLAG_HIDDEN);
+        if (mimo_bar_right) lv_obj_clear_flag(mimo_bar_right, LV_OBJ_FLAG_HIDDEN);
         if (mimo_bar_label) {
             char percent_buf[16];
             snprintf(percent_buf, sizeof(percent_buf), "%.1f%%", mimo_month_percent_f);
@@ -693,6 +699,8 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(mimo_bar_left, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(mimo_bar_right, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_set_style_text_font(hello_label, &lv_font_montserrat_28, 0);
                 lv_label_set_text(hello_label, "Hello World!");
@@ -705,6 +713,8 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(mimo_bar_left, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(mimo_bar_right, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
                 info_selected = 0;
                 update_info_page();
@@ -782,20 +792,21 @@ static void create_menu_ui(void)
     lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0xDDDDDD), 0);
     lv_obj_set_style_bg_color(mimo_bar, lv_color_hex(0x4CAF50), LV_PART_INDICATOR);
     lv_obj_set_style_radius(mimo_bar, 0, 0);
+    lv_obj_set_style_border_width(mimo_bar, 0, 0);
     lv_obj_add_flag(mimo_bar, LV_OBJ_FLAG_HIDDEN);
     
     // Bar brackets
-    lv_obj_t *bar_left = lv_label_create(lv_scr_act());
-    lv_label_set_text(bar_left, "[");
-    lv_obj_set_style_text_font(bar_left, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(bar_left, LV_ALIGN_TOP_LEFT, 190, 130);
-    lv_obj_add_flag(bar_left, LV_OBJ_FLAG_HIDDEN);
+    mimo_bar_left = lv_label_create(lv_scr_act());
+    lv_label_set_text(mimo_bar_left, "[");
+    lv_obj_set_style_text_font(mimo_bar_left, &lv_font_MiSansLight_16, 0);
+    lv_obj_align(mimo_bar_left, LV_ALIGN_TOP_LEFT, 190, 130);
+    lv_obj_add_flag(mimo_bar_left, LV_OBJ_FLAG_HIDDEN);
     
-    lv_obj_t *bar_right = lv_label_create(lv_scr_act());
-    lv_label_set_text(bar_right, "]");
-    lv_obj_set_style_text_font(bar_right, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(bar_right, LV_ALIGN_TOP_LEFT, 337, 130);
-    lv_obj_add_flag(bar_right, LV_OBJ_FLAG_HIDDEN);
+    mimo_bar_right = lv_label_create(lv_scr_act());
+    lv_label_set_text(mimo_bar_right, "]");
+    lv_obj_set_style_text_font(mimo_bar_right, &lv_font_MiSansLight_16, 0);
+    lv_obj_align(mimo_bar_right, LV_ALIGN_TOP_LEFT, 337, 130);
+    lv_obj_add_flag(mimo_bar_right, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo bar label (percentage text)
     mimo_bar_label = lv_label_create(lv_scr_act());
