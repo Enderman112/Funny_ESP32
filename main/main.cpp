@@ -846,7 +846,7 @@ static void create_menu_ui(void)
     // Create MiMo progress bar 1 (monthly)
     mimo_bar1 = lv_bar_create(lv_scr_act());
     lv_obj_set_size(mimo_bar1, 130, 14);
-    lv_obj_align(mimo_bar1, LV_ALIGN_TOP_LEFT, 205, 110);
+    lv_obj_align(mimo_bar1, LV_ALIGN_TOP_LEFT, 205, 120);
     lv_bar_set_range(mimo_bar1, 0, 100);
     lv_bar_set_value(mimo_bar1, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(mimo_bar1, lv_color_hex(0xDDDDDD), 0);
@@ -859,26 +859,26 @@ static void create_menu_ui(void)
     mimo_bar1_left = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_bar1_left, "[");
     lv_obj_set_style_text_font(mimo_bar1_left, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar1_left, LV_ALIGN_TOP_LEFT, 190, 110);
+    lv_obj_align(mimo_bar1_left, LV_ALIGN_TOP_LEFT, 190, 120);
     lv_obj_add_flag(mimo_bar1_left, LV_OBJ_FLAG_HIDDEN);
     
     mimo_bar1_right = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_bar1_right, "]");
     lv_obj_set_style_text_font(mimo_bar1_right, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar1_right, LV_ALIGN_TOP_LEFT, 337, 110);
+    lv_obj_align(mimo_bar1_right, LV_ALIGN_TOP_LEFT, 337, 120);
     lv_obj_add_flag(mimo_bar1_right, LV_OBJ_FLAG_HIDDEN);
     
     // Bar 1 label (monthly percent)
     mimo_bar1_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_bar1_label, "本月: 0.0%");
     lv_obj_set_style_text_font(mimo_bar1_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar1_label, LV_ALIGN_TOP_LEFT, 190, 90);
+    lv_obj_align(mimo_bar1_label, LV_ALIGN_TOP_LEFT, 190, 100);
     lv_obj_add_flag(mimo_bar1_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo progress bar 2 (total)
     mimo_bar2 = lv_bar_create(lv_scr_act());
     lv_obj_set_size(mimo_bar2, 130, 14);
-    lv_obj_align(mimo_bar2, LV_ALIGN_TOP_LEFT, 205, 150);
+    lv_obj_align(mimo_bar2, LV_ALIGN_TOP_LEFT, 205, 160);
     lv_bar_set_range(mimo_bar2, 0, 100);
     lv_bar_set_value(mimo_bar2, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(mimo_bar2, lv_color_hex(0xDDDDDD), 0);
@@ -891,20 +891,20 @@ static void create_menu_ui(void)
     mimo_bar2_left = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_bar2_left, "[");
     lv_obj_set_style_text_font(mimo_bar2_left, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar2_left, LV_ALIGN_TOP_LEFT, 190, 150);
+    lv_obj_align(mimo_bar2_left, LV_ALIGN_TOP_LEFT, 190, 160);
     lv_obj_add_flag(mimo_bar2_left, LV_OBJ_FLAG_HIDDEN);
     
     mimo_bar2_right = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_bar2_right, "]");
     lv_obj_set_style_text_font(mimo_bar2_right, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar2_right, LV_ALIGN_TOP_LEFT, 337, 150);
+    lv_obj_align(mimo_bar2_right, LV_ALIGN_TOP_LEFT, 337, 160);
     lv_obj_add_flag(mimo_bar2_right, LV_OBJ_FLAG_HIDDEN);
     
     // Bar 2 label (total percent)
     mimo_bar2_label = lv_label_create(lv_scr_act());
     lv_label_set_text(mimo_bar2_label, "总套餐: 0.0%");
     lv_obj_set_style_text_font(mimo_bar2_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar2_label, LV_ALIGN_TOP_LEFT, 190, 130);
+    lv_obj_align(mimo_bar2_label, LV_ALIGN_TOP_LEFT, 190, 140);
     lv_obj_add_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create OTA button label (bottom center, hidden by default)
