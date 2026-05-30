@@ -253,12 +253,6 @@ static void fetch_saying(void)
     
     esp_http_client_cleanup(client);
 }
-                }
-            }
-        }
-    }
-    esp_http_client_cleanup(client);
-}
 
 // 更新Hello World页面
 static void update_hello_page(void)
