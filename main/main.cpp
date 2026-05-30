@@ -286,11 +286,20 @@ static void update_hello_page(void)
 
 static void clock_task(void *arg)
 {
+    bool saying_fetched = false;
     while(1) {
         if (Lvgl_lock(-1)) {
             update_hello_page();
             Lvgl_unlock();
         }
+        
+        // WiFi连接后自动获取一言（只获取一次）
+        if (!saying_fetched && wifi_bsp_is_connected()) {
+            saying_fetched = true;
+            ESP_LOGI(TAG, "WiFi connected, fetching saying...");
+            fetch_saying();
+        }
+        
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
@@ -1266,9 +1275,6 @@ extern "C" void app_main(void)
     xTaskCreatePinnedToCore(button_task, "button_task", 8 * 1024, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(clock_task, "clock_task", 8 * 1024, NULL, 3, NULL, 1);
     xTaskCreatePinnedToCore(ntp_task, "ntp_task", 4 * 1024, NULL, 2, NULL, 1);
-    
-    // 启动后立即获取一言
-    fetch_saying();
     
     ESP_LOGI(TAG, "Menu system ready!");
     ESP_LOGI(TAG, "Web admin: http://[IP]");
