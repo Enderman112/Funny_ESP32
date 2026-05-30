@@ -288,9 +288,7 @@ static void clock_task(void *arg)
 {
     while(1) {
         if (Lvgl_lock(-1)) {
-            if (!info_page_active && !deepseek_page_active && !menu_visible) {
-                update_hello_page();
-            }
+            update_hello_page();
             Lvgl_unlock();
         }
         vTaskDelay(pdMS_TO_TICKS(1000));
