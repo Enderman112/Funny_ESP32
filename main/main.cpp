@@ -890,13 +890,6 @@ static void create_menu_ui(void)
     lv_obj_align(mimo_bar2_label, LV_ALIGN_TOP_LEFT, 190, 130);
     lv_obj_add_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
     
-    // Create MiMo bar label (percentage text)
-    mimo_bar_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(mimo_bar_label, "0%");
-    lv_obj_set_style_text_font(mimo_bar_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar_label, LV_ALIGN_TOP_LEFT, 190, 150);
-    lv_obj_add_flag(mimo_bar_label, LV_OBJ_FLAG_HIDDEN);
-    
     // Create OTA button label (bottom center, hidden by default)
     ota_btn_label = lv_label_create(lv_scr_act());
     lv_label_set_text(ota_btn_label, "[BOOT] 刷新数据");
