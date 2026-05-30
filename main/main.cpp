@@ -250,12 +250,8 @@ static lv_obj_t *deepseek_label = NULL;
 static lv_obj_t *mimo_label = NULL;
 static lv_obj_t *mimo_bar1 = NULL;
 static lv_obj_t *mimo_bar1_label = NULL;
-static lv_obj_t *mimo_bar1_left = NULL;
-static lv_obj_t *mimo_bar1_right = NULL;
 static lv_obj_t *mimo_bar2 = NULL;
 static lv_obj_t *mimo_bar2_label = NULL;
-static lv_obj_t *mimo_bar2_left = NULL;
-static lv_obj_t *mimo_bar2_right = NULL;
 static lv_obj_t *ota_btn_label = NULL;
 
 // Status bar labels
@@ -699,46 +695,38 @@ static void update_deepseek_page(void)
         snprintf(mimo_buf, sizeof(mimo_buf), "MiMo\n错误: %s", mimo_error);
         if (mimo_bar1) lv_obj_add_flag(mimo_bar1, LV_OBJ_FLAG_HIDDEN);
         if (mimo_bar1_label) lv_obj_add_flag(mimo_bar1_label, LV_OBJ_FLAG_HIDDEN);
-        if (mimo_bar1_left) lv_obj_add_flag(mimo_bar1_left, LV_OBJ_FLAG_HIDDEN);
-        if (mimo_bar1_right) lv_obj_add_flag(mimo_bar1_right, LV_OBJ_FLAG_HIDDEN);
         if (mimo_bar2) lv_obj_add_flag(mimo_bar2, LV_OBJ_FLAG_HIDDEN);
         if (mimo_bar2_label) lv_obj_add_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
-        if (mimo_bar2_left) lv_obj_add_flag(mimo_bar2_left, LV_OBJ_FLAG_HIDDEN);
-        if (mimo_bar2_right) lv_obj_add_flag(mimo_bar2_right, LV_OBJ_FLAG_HIDDEN);
     } else {
         snprintf(mimo_buf, sizeof(mimo_buf), "MiMo");
         
         // Bar 1: monthly
-        float month_used_b = atof(mimo_month_used) / 1000000000.0f;
-        float month_limit_b = atof(mimo_month_limit) / 1000000000.0f;
-        if (mimo_bar1_label) {
-            char label[48];
-            snprintf(label, sizeof(label), "本月: %.1fB / %.1fB (%.1f%%)", month_used_b, month_limit_b, mimo_month_percent_f);
-            lv_label_set_text(mimo_bar1_label, label);
-            lv_obj_clear_flag(mimo_bar1_label, LV_OBJ_FLAG_HIDDEN);
-        }
         if (mimo_bar1) {
             lv_bar_set_value(mimo_bar1, (int)mimo_month_percent_f, LV_ANIM_OFF);
             lv_obj_clear_flag(mimo_bar1, LV_OBJ_FLAG_HIDDEN);
         }
-        if (mimo_bar1_left) lv_obj_clear_flag(mimo_bar1_left, LV_OBJ_FLAG_HIDDEN);
-        if (mimo_bar1_right) lv_obj_clear_flag(mimo_bar1_right, LV_OBJ_FLAG_HIDDEN);
+        if (mimo_bar1_label) {
+            char label[48];
+            float month_used_b = atof(mimo_month_used) / 1000000000.0f;
+            float month_limit_b = atof(mimo_month_limit) / 1000000000.0f;
+            snprintf(label, sizeof(label), "本月: %.1fB / %.1fB (%.1f%%)", month_used_b, month_limit_b, mimo_month_percent_f);
+            lv_label_set_text(mimo_bar1_label, label);
+            lv_obj_clear_flag(mimo_bar1_label, LV_OBJ_FLAG_HIDDEN);
+        }
         
         // Bar 2: total
-        float total_used_b = (strlen(mimo_total_used) > 0 && atof(mimo_total_used) > 0) ? atof(mimo_total_used) / 1000000000.0f : month_used_b;
-        float total_limit_b = (strlen(mimo_total_limit) > 0 && atof(mimo_total_limit) > 0) ? atof(mimo_total_limit) / 1000000000.0f : month_limit_b;
-        if (mimo_bar2_label) {
-            char label[48];
-            snprintf(label, sizeof(label), "总套餐: %.1fB / %.1fB (%.1f%%)", total_used_b, total_limit_b, mimo_total_percent_f);
-            lv_label_set_text(mimo_bar2_label, label);
-            lv_obj_clear_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
-        }
         if (mimo_bar2) {
             lv_bar_set_value(mimo_bar2, (int)mimo_total_percent_f, LV_ANIM_OFF);
             lv_obj_clear_flag(mimo_bar2, LV_OBJ_FLAG_HIDDEN);
         }
-        if (mimo_bar2_left) lv_obj_clear_flag(mimo_bar2_left, LV_OBJ_FLAG_HIDDEN);
-        if (mimo_bar2_right) lv_obj_clear_flag(mimo_bar2_right, LV_OBJ_FLAG_HIDDEN);
+        if (mimo_bar2_label) {
+            char label[48];
+            float total_used_b = (strlen(mimo_total_used) > 0 && atof(mimo_total_used) > 0) ? atof(mimo_total_used) / 1000000000.0f : atof(mimo_month_used) / 1000000000.0f;
+            float total_limit_b = (strlen(mimo_total_limit) > 0 && atof(mimo_total_limit) > 0) ? atof(mimo_total_limit) / 1000000000.0f : atof(mimo_month_limit) / 1000000000.0f;
+            snprintf(label, sizeof(label), "总套餐: %.1fB / %.1fB (%.1f%%)", total_used_b, total_limit_b, mimo_total_percent_f);
+            lv_label_set_text(mimo_bar2_label, label);
+            lv_obj_clear_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
+        }
     }
     if (mimo_label) lv_label_set_text(mimo_label, mimo_buf);
 }
@@ -755,12 +743,8 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar1, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar1_label, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_add_flag(mimo_bar1_left, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_add_flag(mimo_bar1_right, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar2, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_add_flag(mimo_bar2_left, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_add_flag(mimo_bar2_right, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_set_style_text_font(hello_label, &lv_font_montserrat_28, 0);
                 lv_label_set_text(hello_label, "Hello World!");
@@ -773,12 +757,8 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar1, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar1_label, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_add_flag(mimo_bar1_left, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_add_flag(mimo_bar1_right, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar2, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_add_flag(mimo_bar2_left, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_add_flag(mimo_bar2_right, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
                 info_selected = 0;
                 update_info_page();
@@ -854,19 +834,6 @@ static void create_menu_ui(void)
     lv_obj_align(mimo_bar1_label, LV_ALIGN_TOP_LEFT, 192, 65);
     lv_obj_add_flag(mimo_bar1_label, LV_OBJ_FLAG_HIDDEN);
     
-    // Bar 1 brackets
-    mimo_bar1_left = lv_label_create(lv_scr_act());
-    lv_label_set_text(mimo_bar1_left, "[");
-    lv_obj_set_style_text_font(mimo_bar1_left, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar1_left, LV_ALIGN_TOP_LEFT, 190, 90);
-    lv_obj_add_flag(mimo_bar1_left, LV_OBJ_FLAG_HIDDEN);
-    
-    mimo_bar1_right = lv_label_create(lv_scr_act());
-    lv_label_set_text(mimo_bar1_right, "]");
-    lv_obj_set_style_text_font(mimo_bar1_right, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar1_right, LV_ALIGN_TOP_LEFT, 345, 90);
-    lv_obj_add_flag(mimo_bar1_right, LV_OBJ_FLAG_HIDDEN);
-    
     // Create MiMo progress bar 1 (monthly)
     mimo_bar1 = lv_bar_create(lv_scr_act());
     lv_obj_set_size(mimo_bar1, 140, 14);
@@ -877,27 +844,18 @@ static void create_menu_ui(void)
     lv_obj_set_style_bg_color(mimo_bar1, lv_color_hex(0x4CAF50), LV_PART_INDICATOR);
     lv_obj_set_style_radius(mimo_bar1, 0, 0);
     lv_obj_set_style_radius(mimo_bar1, 0, LV_PART_INDICATOR);
+    lv_obj_set_style_border_width(mimo_bar1, 1, 0);
+    lv_obj_set_style_border_color(mimo_bar1, lv_color_hex(0x666666), 0);
+    lv_obj_set_style_border_width(mimo_bar1, 1, LV_PART_INDICATOR);
+    lv_obj_set_style_border_color(mimo_bar1, lv_color_hex(0x666666), LV_PART_INDICATOR);
     lv_obj_add_flag(mimo_bar1, LV_OBJ_FLAG_HIDDEN);
     
-    // Bar 2 label (total usage + percent) above bar
-    mimo_bar2_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(mimo_bar2_label, "总套餐: 0.0B / 0.0B (0.0%)");
-    lv_obj_set_style_text_font(mimo_bar2_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar2_label, LV_ALIGN_TOP_LEFT, 192, 115);
-    lv_obj_add_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
-    
-    // Bar 2 brackets
-    mimo_bar2_left = lv_label_create(lv_scr_act());
-    lv_label_set_text(mimo_bar2_left, "[");
-    lv_obj_set_style_text_font(mimo_bar2_left, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar2_left, LV_ALIGN_TOP_LEFT, 190, 140);
-    lv_obj_add_flag(mimo_bar2_left, LV_OBJ_FLAG_HIDDEN);
-    
-    mimo_bar2_right = lv_label_create(lv_scr_act());
-    lv_label_set_text(mimo_bar2_right, "]");
-    lv_obj_set_style_text_font(mimo_bar2_right, &lv_font_MiSansLight_16, 0);
-    lv_obj_align(mimo_bar2_right, LV_ALIGN_TOP_LEFT, 345, 140);
-    lv_obj_add_flag(mimo_bar2_right, LV_OBJ_FLAG_HIDDEN);
+    // Bar 1 label (monthly usage + percent)
+    mimo_bar1_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(mimo_bar1_label, "本月: 0.0B / 0.0B (0.0%)");
+    lv_obj_set_style_text_font(mimo_bar1_label, &lv_font_MiSansLight_16, 0);
+    lv_obj_align(mimo_bar1_label, LV_ALIGN_TOP_LEFT, 190, 65);
+    lv_obj_add_flag(mimo_bar1_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create MiMo progress bar 2 (total)
     mimo_bar2 = lv_bar_create(lv_scr_act());
@@ -909,6 +867,10 @@ static void create_menu_ui(void)
     lv_obj_set_style_bg_color(mimo_bar2, lv_color_hex(0x2196F3), LV_PART_INDICATOR);
     lv_obj_set_style_radius(mimo_bar2, 0, 0);
     lv_obj_set_style_radius(mimo_bar2, 0, LV_PART_INDICATOR);
+    lv_obj_set_style_border_width(mimo_bar2, 1, 0);
+    lv_obj_set_style_border_color(mimo_bar2, lv_color_hex(0x666666), 0);
+    lv_obj_set_style_border_width(mimo_bar2, 1, LV_PART_INDICATOR);
+    lv_obj_set_style_border_color(mimo_bar2, lv_color_hex(0x666666), LV_PART_INDICATOR);
     lv_obj_add_flag(mimo_bar2, LV_OBJ_FLAG_HIDDEN);
     
     // Create OTA button label (bottom center, hidden by default)
