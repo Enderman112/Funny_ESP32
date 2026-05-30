@@ -1264,7 +1264,7 @@ extern "C" void app_main(void)
     web_server_init();
     
     xTaskCreatePinnedToCore(button_task, "button_task", 8 * 1024, NULL, 5, NULL, 1);
-    xTaskCreatePinnedToCore(clock_task, "clock_task", 2 * 1024, NULL, 3, NULL, 1);
+    xTaskCreatePinnedToCore(clock_task, "clock_task", 8 * 1024, NULL, 3, NULL, 1);
     xTaskCreatePinnedToCore(ntp_task, "ntp_task", 4 * 1024, NULL, 2, NULL, 1);
     xTaskCreatePinnedToCore(api_refresh_task, "api_refresh", 8 * 1024, NULL, 2, NULL, 1);
     xTaskCreatePinnedToCore(status_bar_task, "status_bar", 4 * 1024, NULL, 2, NULL, 1);
