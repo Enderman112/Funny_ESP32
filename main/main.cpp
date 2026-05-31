@@ -1295,7 +1295,7 @@ static void button_task(void *arg)
     }
 }
 
-static void Lvgl_FlushCallback(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map)
+static void Lvgl_FlushCallback(lv_display_t *disp, const lv_area_t *area, uint8_t *color_map)
 {
     uint16_t *buffer = (uint16_t *)color_map;
     for(int y = area->y1; y <= area->y2; y++) 
@@ -1308,7 +1308,7 @@ static void Lvgl_FlushCallback(lv_disp_drv_t *drv, const lv_area_t *area, lv_col
         }
     }
     RlcdPort.RLCD_Display();
-    lv_disp_flush_ready(drv);
+    lv_disp_flush_ready(disp);
 }
 
 static void ntp_task(void *arg)
