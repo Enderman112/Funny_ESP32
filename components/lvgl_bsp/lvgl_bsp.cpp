@@ -5,9 +5,8 @@
 #include <esp_timer.h>
 #include "lvgl_bsp.h"
 
-static lv_disp_draw_buf_t disp_buf; 		// contains internal graphic buffer(s) called draw buffer(s)
-static lv_disp_drv_t disp_drv;      		// contains callback functions
 static SemaphoreHandle_t lvgl_mux = NULL;
+#define BYTES_PER_PIXEL (LV_COLOR_FORMAT_GET_SIZE(LV_COLOR_FORMAT_RGB565))
 
 static const char *TAG = "LvglPort";
 
@@ -51,32 +50,28 @@ static void Lvgl_port_task(void *arg)
 }
 
 
-void Lvgl_PortInit(int width, int height,DispFlushCb flush_cb) {
+void Lvgl_PortInit(int width, int height, DispFlushCb flush_cb) {
     lvgl_mux = xSemaphoreCreateMutex();
     lv_init();
-    lv_color_t *buffer1 = (lv_color_t *)heap_caps_malloc(width * height * sizeof(lv_color_t) , MALLOC_CAP_SPIRAM);
-  	assert(buffer1);
-	lv_color_t *buffer2 = (lv_color_t *)heap_caps_malloc(width * height * sizeof(lv_color_t) , MALLOC_CAP_SPIRAM);
-  	assert(buffer2);
-
-    lv_disp_draw_buf_init(&disp_buf, buffer1, buffer2, width * height);
-    ESP_LOGI(TAG, "Register display driver to LVGL");
-
-    lv_disp_drv_init(&disp_drv);
-  	disp_drv.hor_res = width;
-  	disp_drv.ver_res = height;
-  	disp_drv.flush_cb = flush_cb;
-	disp_drv.full_refresh = 1;
-  	disp_drv.draw_buf = &disp_buf;
-  	lv_disp_drv_register(&disp_drv);
-
+    
+    lv_display_t *disp = lv_display_create(width, height);
+    lv_display_set_flush_cb(disp, flush_cb);
+    
+    size_t buffer_size = width * height * BYTES_PER_PIXEL / 2;
+    uint8_t *buffer1 = (uint8_t *)heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
+    uint8_t *buffer2 = (uint8_t *)heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
+    assert(buffer1);
+    assert(buffer2);
+    
+    lv_display_set_buffers(disp, buffer1, buffer2, buffer_size, LV_DISPLAY_RENDER_MODE_PARTIAL);
+    
     ESP_LOGI(TAG, "Install LVGL tick timer");
   	esp_timer_create_args_t lvgl_tick_timer_args = {};
   	lvgl_tick_timer_args.callback = &Increase_lvgl_tick;
   	lvgl_tick_timer_args.name = "lvgl_tick";
     esp_timer_handle_t lvgl_tick_timer = NULL;
   	ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
-  	ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer,LVGL_TICK_PERIOD_MS * 1000));
+  	ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, LVGL_TICK_PERIOD_MS * 1000));
 
     xTaskCreatePinnedToCore(Lvgl_port_task, "LVGL", 8 * 1024, NULL, 5, NULL, 0);
 }
