@@ -25,7 +25,6 @@
 #include "adc_bsp.h"
 
 extern "C" const lv_font_t lv_font_MiSansLight_16;
-extern "C" const lv_font_t lv_font_MiSansLight_28;
 
 static const char *TAG = "HelloWorld";
 static nvs_handle_t my_nvs_handle;
@@ -1003,24 +1002,24 @@ static void create_menu_ui(void)
     // 日期（时钟上方）
     hello_date_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_date_label, "----/--/--");
-    lv_obj_set_style_text_font(hello_date_label, &lv_font_MiSansLight_28, 0);
+    lv_obj_set_style_text_font(hello_date_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_date_label, lv_color_hex(0x444444), 0);
     lv_obj_align(hello_date_label, LV_ALIGN_CENTER, 0, -65);
     
     // 星期（时钟下方）
     hello_week_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_week_label, "---");
-    lv_obj_set_style_text_font(hello_week_label, &lv_font_MiSansLight_28, 0);
+    lv_obj_set_style_text_font(hello_week_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_week_label, lv_color_hex(0x444444), 0);
     lv_obj_align(hello_week_label, LV_ALIGN_CENTER, 0, 20);
     
     // 一言（最下方）
     hello_saying_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_saying_label, "...");
-    lv_obj_set_style_text_font(hello_saying_label, &lv_font_MiSansLight_28, 0);
+    lv_obj_set_style_text_font(hello_saying_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_saying_label, lv_color_hex(0x666666), 0);
     lv_obj_align(hello_saying_label, LV_ALIGN_CENTER, 0, 70);
-    lv_obj_set_width(hello_saying_label, 400);
+    lv_obj_set_width(hello_saying_label, 360);
     lv_obj_set_style_text_align(hello_saying_label, LV_TEXT_ALIGN_CENTER, 0);
     
     // Create main label (default page - English only)
