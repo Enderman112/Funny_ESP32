@@ -35,7 +35,7 @@ float adc_bsp_get_battery_voltage(void)
     esp_err_t err = adc_oneshot_read(adc1_handle, ADC_CHANNEL_3, &value);
     if (err == ESP_OK) {
         adc_cali_raw_to_voltage(cali_handle, value, &voltage_mv);
-        vol = 0.001f * voltage_mv * 2.5f;  // 2.5x voltage divider
+        vol = 0.001f * voltage_mv * 3;  // 3x voltage divider
         ESP_LOGI(TAG, "ADC raw=%d, mv=%d, voltage=%.2fV", value, voltage_mv, vol);
     }
     return vol;
@@ -47,9 +47,9 @@ uint8_t adc_bsp_get_battery_level(void)
     if (vol < 3.0f) {
         return 0;
     }
-    if (vol > 4.2f) {
+    if (vol > 4.12f) {
         return 100;
     }
-    float level = ((vol - 3.0f) / 1.2f) * 100;
+    float level = ((vol - 3.0f) / 1.12f) * 100;
     return (uint8_t)level;
 }
