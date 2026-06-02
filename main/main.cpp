@@ -287,9 +287,9 @@ static void update_hello_page(void)
         snprintf(week_buf, sizeof(week_buf), "%s  DAY %d", weekdays[timeinfo.tm_wday], timeinfo.tm_yday + 1);
         lv_label_set_text(hello_week_label, week_buf);
         
-        // 检查是否需要刷新一言（每天一次）
+        // 检查是否需要刷新一言（每天一次，NTP同步后）
         int today = timeinfo.tm_mday;
-        if (today != last_saying_day) {
+        if (ntp_synced && today > 0 && today != last_saying_day) {
             last_saying_day = today;
             fetch_saying();
         }
@@ -302,21 +302,12 @@ static void update_hello_page(void)
 
 static void clock_task(void *arg)
 {
-    bool saying_fetched = false;
     while(1) {
         if (Lvgl_lock(-1)) {
             update_clock();
             update_hello_page();
             Lvgl_unlock();
         }
-        
-        // WiFi连接后自动获取一言（只获取一次）
-        if (!saying_fetched && wifi_bsp_is_connected()) {
-            saying_fetched = true;
-            ESP_LOGI(TAG, "WiFi connected, fetching saying...");
-            fetch_saying();
-        }
-        
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
