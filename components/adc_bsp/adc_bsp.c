@@ -36,6 +36,7 @@ float adc_bsp_get_battery_voltage(void)
     if (err == ESP_OK) {
         adc_cali_raw_to_voltage(cali_handle, value, &voltage_mv);
         vol = 0.001f * voltage_mv * 2;  // 2x voltage divider
+        ESP_LOGI(TAG, "ADC raw=%d, mv=%d, voltage=%.2fV", value, voltage_mv, vol);
     }
     return vol;
 }
