@@ -1354,6 +1354,7 @@ extern "C" void app_main(void)
     xTaskCreatePinnedToCore(button_task, "button_task", 8 * 1024, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(clock_task, "clock_task", 8 * 1024, NULL, 3, NULL, 1);
     xTaskCreatePinnedToCore(ntp_task, "ntp_task", 4 * 1024, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(status_bar_task, "status_bar", 4 * 1024, NULL, 2, NULL, 1);
     
     ESP_LOGI(TAG, "Menu system ready!");
     ESP_LOGI(TAG, "Web admin: http://[IP]");
