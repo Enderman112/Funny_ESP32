@@ -7,7 +7,7 @@ static adc_cali_handle_t cali_handle;
 static adc_oneshot_unit_handle_t adc1_handle;
 
 // 电压平滑滤波
-#define SMOOTH_FACTOR 0.3f
+#define SMOOTH_FACTOR 0.1f  // 更平滑，减少跳变
 static float smoothed_voltage = 0.0f;
 static bool voltage_initialized = false;
 
