@@ -302,12 +302,25 @@ static void update_hello_page(void)
 
 static void clock_task(void *arg)
 {
+    int last_hour = -1;
     while(1) {
         if (Lvgl_lock(-1)) {
             update_clock();
             update_hello_page();
             Lvgl_unlock();
         }
+        
+        // 每天零点刷新最新版本
+        time_t now;
+        struct tm timeinfo;
+        time(&now);
+        localtime_r(&now, &timeinfo);
+        if (timeinfo.tm_year >= (2016 - 1900) && timeinfo.tm_hour == 0 && last_hour != 0) {
+            ESP_LOGI(TAG, "Midnight refresh - fetching latest version");
+            wifi_bsp_fetch_latest_version();
+        }
+        last_hour = timeinfo.tm_hour;
+        
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
@@ -1131,18 +1144,18 @@ static void create_menu_ui(void)
     lv_obj_set_style_text_font(battery_icon, &lv_font_montserrat_14, 0);
     lv_obj_align(battery_icon, LV_ALIGN_BOTTOM_RIGHT, -45, -5);
     
-    // Charge icon (lightning)
+    // Charge icon (lightning) - moved left to avoid overlap
     charge_icon = lv_label_create(lv_scr_act());
     lv_label_set_text(charge_icon, LV_SYMBOL_CHARGE);
     lv_obj_set_style_text_font(charge_icon, &lv_font_montserrat_14, 0);
-    lv_obj_align(charge_icon, LV_ALIGN_BOTTOM_RIGHT, -60, -5);
+    lv_obj_align(charge_icon, LV_ALIGN_BOTTOM_RIGHT, -70, -5);
     lv_obj_add_flag(charge_icon, LV_OBJ_FLAG_HIDDEN);
     
     // WiFi icon
     wifi_icon = lv_label_create(lv_scr_act());
     lv_label_set_text(wifi_icon, LV_SYMBOL_WIFI);
     lv_obj_set_style_text_font(wifi_icon, &lv_font_montserrat_14, 0);
-    lv_obj_align(wifi_icon, LV_ALIGN_BOTTOM_RIGHT, -80, -5);
+    lv_obj_align(wifi_icon, LV_ALIGN_BOTTOM_RIGHT, -95, -5);
 }
 
 static void api_refresh_task(void *arg)

@@ -12,6 +12,7 @@ const char* wifi_bsp_get_ip(void);
 const char* wifi_bsp_get_ssid(void);
 void wifi_bsp_connect(const char* ssid, const char* password);
 const char* wifi_bsp_get_latest_version(void);
+void wifi_bsp_fetch_latest_version(void);
 
 void wifi_bsp_start_ap(void);
 void wifi_bsp_stop_ap(void);

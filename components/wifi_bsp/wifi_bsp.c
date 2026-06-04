@@ -72,7 +72,7 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
-static void fetch_latest_version(void)
+void wifi_bsp_fetch_latest_version(void)
 {
     esp_http_client_config_t config = {
         .url = "https://api.github.com/repos/Enderman112/Funny_ESP32/releases/latest",
@@ -101,7 +101,7 @@ static void fetch_latest_version(void)
 static void fetch_version_task(void *arg)
 {
     vTaskDelay(pdMS_TO_TICKS(2000)); // 等待网络稳定
-    fetch_latest_version();
+    wifi_bsp_fetch_latest_version();
     vTaskDelete(NULL);
 }
 
