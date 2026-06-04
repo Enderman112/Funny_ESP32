@@ -6,6 +6,11 @@ static const char *TAG = "ADC_BSP";
 static adc_cali_handle_t cali_handle;
 static adc_oneshot_unit_handle_t adc1_handle;
 
+// 电压平滑滤波
+#define SMOOTH_FACTOR 0.3f
+static float smoothed_voltage = 0.0f;
+static bool voltage_initialized = false;
+
 void adc_bsp_init(void)
 {
     adc_cali_curve_fitting_config_t cali_config = {};
@@ -36,9 +41,18 @@ float adc_bsp_get_battery_voltage(void)
     if (err == ESP_OK) {
         adc_cali_raw_to_voltage(cali_handle, value, &voltage_mv);
         vol = 0.001f * voltage_mv * 3;  // 3x voltage divider
-        ESP_LOGI(TAG, "ADC raw=%d, mv=%d, voltage=%.2fV", value, voltage_mv, vol);
+        
+        // 平滑滤波
+        if (!voltage_initialized) {
+            smoothed_voltage = vol;
+            voltage_initialized = true;
+        } else {
+            smoothed_voltage = smoothed_voltage * (1.0f - SMOOTH_FACTOR) + vol * SMOOTH_FACTOR;
+        }
+        
+        ESP_LOGI(TAG, "ADC raw=%d, mv=%d, voltage=%.2fV, smoothed=%.2fV", value, voltage_mv, vol, smoothed_voltage);
     }
-    return vol;
+    return smoothed_voltage;
 }
 
 uint8_t adc_bsp_get_battery_level(void)
