@@ -54,9 +54,9 @@ float adc_bsp_get_battery_voltage(void)
             
             // 检测充电状态：电压上升且超过阈值
             float diff = smoothed_voltage - prev_voltage;
-            if (diff > 0.05f && smoothed_voltage > 3.5f) {
+            if (diff > 0.01f && smoothed_voltage > 3.3f) {
                 is_charging = true;
-            } else if (diff < -0.1f) {
+            } else if (diff < -0.05f) {
                 is_charging = false;
             }
             prev_voltage = smoothed_voltage;
