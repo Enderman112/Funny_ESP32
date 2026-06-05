@@ -56,7 +56,8 @@ float adc_bsp_get_battery_voltage(void)
             float diff = smoothed_voltage - prev_voltage;
             if (diff > 0.01f && smoothed_voltage > 3.3f) {
                 is_charging = true;
-            } else if (diff < -0.05f) {
+            } else if (diff < -0.01f || smoothed_voltage < 3.3f) {
+                // 电压下降或低于阈值，停止充电
                 is_charging = false;
             }
             prev_voltage = smoothed_voltage;
