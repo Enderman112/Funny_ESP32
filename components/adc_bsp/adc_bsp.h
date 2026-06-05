@@ -9,6 +9,7 @@ extern "C" {
 void adc_bsp_init(void);
 float adc_bsp_get_battery_voltage(void);
 uint8_t adc_bsp_get_battery_level(void);
+bool adc_bsp_is_charging(void);
 
 #ifdef __cplusplus
 }

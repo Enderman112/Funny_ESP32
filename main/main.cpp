@@ -1196,9 +1196,9 @@ static void status_bar_task(void *arg)
                 snprintf(level_buf, sizeof(level_buf), "%d%%", level);
                 lv_label_set_text(battery_label, level_buf);
                 
-                // Show charge icon when voltage >= 3.8V (charging)
+                // Show charge icon when charging detected
                 if (charge_icon) {
-                    if (voltage >= 3.8f) {
+                    if (adc_bsp_is_charging()) {
                         lv_obj_clear_flag(charge_icon, LV_OBJ_FLAG_HIDDEN);
                     } else {
                         lv_obj_add_flag(charge_icon, LV_OBJ_FLAG_HIDDEN);

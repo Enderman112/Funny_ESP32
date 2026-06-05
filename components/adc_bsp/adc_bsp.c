@@ -7,9 +7,11 @@ static adc_cali_handle_t cali_handle;
 static adc_oneshot_unit_handle_t adc1_handle;
 
 // 电压平滑滤波
-#define SMOOTH_FACTOR 0.1f  // 更平滑，减少跳变
+#define SMOOTH_FACTOR 0.1f
 static float smoothed_voltage = 0.0f;
+static float prev_voltage = 0.0f;
 static bool voltage_initialized = false;
+static bool is_charging = false;
 
 void adc_bsp_init(void)
 {
@@ -42,18 +44,22 @@ float adc_bsp_get_battery_voltage(void)
         adc_cali_raw_to_voltage(cali_handle, value, &voltage_mv);
         vol = 0.001f * voltage_mv * 3;  // 3x voltage divider
         
-        // 平滑滤波，但电压下降时快速响应
+        // 平滑滤波
         if (!voltage_initialized) {
             smoothed_voltage = vol;
+            prev_voltage = vol;
             voltage_initialized = true;
         } else {
-            float diff = vol - smoothed_voltage;
-            if (diff < -0.2f) {
-                // 电压大幅下降（拔充电器），立即响应
-                smoothed_voltage = vol;
-            } else {
-                smoothed_voltage = smoothed_voltage * (1.0f - SMOOTH_FACTOR) + vol * SMOOTH_FACTOR;
+            smoothed_voltage = smoothed_voltage * (1.0f - SMOOTH_FACTOR) + vol * SMOOTH_FACTOR;
+            
+            // 检测充电状态：电压上升且超过阈值
+            float diff = smoothed_voltage - prev_voltage;
+            if (diff > 0.05f && smoothed_voltage > 3.5f) {
+                is_charging = true;
+            } else if (diff < -0.1f) {
+                is_charging = false;
             }
+            prev_voltage = smoothed_voltage;
         }
         
         ESP_LOGI(TAG, "ADC raw=%d, mv=%d, voltage=%.2fV, smoothed=%.2fV", value, voltage_mv, vol, smoothed_voltage);
@@ -72,4 +78,9 @@ uint8_t adc_bsp_get_battery_level(void)
     }
     float level = ((vol - 3.0f) / 1.2f) * 100;
     return (uint8_t)level;
+}
+
+bool adc_bsp_is_charging(void)
+{
+    return is_charging;
 }
