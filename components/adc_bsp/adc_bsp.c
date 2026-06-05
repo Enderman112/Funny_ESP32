@@ -42,12 +42,18 @@ float adc_bsp_get_battery_voltage(void)
         adc_cali_raw_to_voltage(cali_handle, value, &voltage_mv);
         vol = 0.001f * voltage_mv * 3;  // 3x voltage divider
         
-        // 平滑滤波
+        // 平滑滤波，但电压下降时快速响应
         if (!voltage_initialized) {
             smoothed_voltage = vol;
             voltage_initialized = true;
         } else {
-            smoothed_voltage = smoothed_voltage * (1.0f - SMOOTH_FACTOR) + vol * SMOOTH_FACTOR;
+            float diff = vol - smoothed_voltage;
+            if (diff < -0.2f) {
+                // 电压大幅下降（拔充电器），立即响应
+                smoothed_voltage = vol;
+            } else {
+                smoothed_voltage = smoothed_voltage * (1.0f - SMOOTH_FACTOR) + vol * SMOOTH_FACTOR;
+            }
         }
         
         ESP_LOGI(TAG, "ADC raw=%d, mv=%d, voltage=%.2fV, smoothed=%.2fV", value, voltage_mv, vol, smoothed_voltage);
