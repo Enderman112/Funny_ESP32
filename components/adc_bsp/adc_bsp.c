@@ -52,18 +52,17 @@ float adc_bsp_get_battery_voltage(void)
         } else {
             smoothed_voltage = smoothed_voltage * (1.0f - SMOOTH_FACTOR) + vol * SMOOTH_FACTOR;
             
-            // 检测充电状态：电压上升且超过阈值
-            float diff = smoothed_voltage - prev_voltage;
-            if (diff > 0.01f && smoothed_voltage > 3.3f) {
+            // 检测充电状态：用原始电压判断
+            float diff = vol - prev_voltage;
+            if (diff > 0.01f && vol > 3.3f) {
                 is_charging = true;
-            } else if (diff < -0.01f || smoothed_voltage < 3.3f) {
-                // 电压下降或低于阈值，停止充电
+            } else if (diff < -0.01f || vol < 3.3f) {
                 is_charging = false;
             }
-            prev_voltage = smoothed_voltage;
+            prev_voltage = vol;
         }
         
-        ESP_LOGI(TAG, "ADC raw=%d, mv=%d, voltage=%.2fV, smoothed=%.2fV", value, voltage_mv, vol, smoothed_voltage);
+        ESP_LOGI(TAG, "ADC raw=%d, mv=%d, voltage=%.2fV, smoothed=%.2fV, charging=%d", value, voltage_mv, vol, smoothed_voltage, is_charging);
     }
     return smoothed_voltage;
 }
