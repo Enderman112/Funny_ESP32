@@ -73,10 +73,10 @@ uint8_t adc_bsp_get_battery_level(void)
     if (vol < 3.0f) {
         return 0;
     }
-    if (vol > 4.2f) {
+    if (vol > 4.12f) {
         return 100;
     }
-    float level = ((vol - 3.0f) / 1.2f) * 100;
+    float level = ((vol - 3.0f) / 1.12f) * 100;
     return (uint8_t)level;
 }
 
