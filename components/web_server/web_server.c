@@ -577,6 +577,7 @@ static esp_err_t weather_handler(httpd_req_t *req)
     }
     
     // Parse qweather_apihost
+    char qweather_apihost[64] = {0};
     p = strstr(buf, "qweather_apihost=");
     if (p) {
         p += 17;
