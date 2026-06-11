@@ -50,6 +50,10 @@ static char ntp_timezone[32] = "UTC-8";
 static char weather_text[64] = "天气获取中...";
 static char weather_temp[16] = "--";
 static char weather_pop[16] = "--";
+static int weather_provider = 0;  // 0=none, 1=qweather, 2=openweather
+static char qweather_api_key[65] = "";
+static char openweather_api_key[65] = "";
+static char weather_location[32] = "101010100";
 
 // NVS存储函数
 static void nvs_save_string(const char* key, const char* value)
@@ -536,11 +540,6 @@ static char deepseek_usage[32] = "未知";
 static char deepseek_error[64] = "";
 static char deepseek_api_key[65] = "";
 
-// Weather provider state
-static int weather_provider = 0;  // 0=none, 1=qweather, 2=openweather
-static char qweather_api_key[65] = "";
-static char openweather_api_key[65] = "";
-static char weather_location[32] = "101010100";  // 默认北京
 static char mimo_cookie[640] = "";
 static char mimo_month_used[32] = "未知";
 static char mimo_month_limit[32] = "未知";
