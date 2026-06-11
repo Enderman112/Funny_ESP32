@@ -36,13 +36,20 @@ static lv_obj_t *clock_label = NULL;
 static lv_obj_t *hello_clock_label = NULL;  // 大时钟
 static lv_obj_t *hello_date_label = NULL;   // 日期
 static lv_obj_t *hello_week_label = NULL;   // 星期
+static lv_obj_t *hello_weather_label = NULL; // 天气
 static lv_obj_t *hello_saying_label = NULL; // 一言
 static char saying_text[128] = "";
 static int last_saying_day = 0;
+static int last_weather_period = -1;
 static bool clock_show_seconds = true;
 static bool ntp_synced = false;
 static char ntp_server[64] = "ntp.aliyun.com";
 static char ntp_timezone[32] = "UTC-8";
+
+// 天气数据
+static char weather_text[64] = "天气获取中...";
+static char weather_temp[16] = "--";
+static char weather_pop[16] = "--";
 
 // NVS存储函数
 static void nvs_save_string(const char* key, const char* value)
@@ -254,6 +261,120 @@ static void fetch_saying(void)
     esp_http_client_cleanup(client);
 }
 
+// 天气HTTP回调
+static char weather_buf[512] = {0};
+
+static esp_err_t weather_http_handler(esp_http_client_event_t *evt)
+{
+    switch (evt->event_id) {
+        case HTTP_EVENT_ON_DATA:
+            if (evt->data_len > 0 && evt->data_len < 512) {
+                memcpy(weather_buf, evt->data, evt->data_len);
+                weather_buf[evt->data_len] = '\0';
+            }
+            break;
+        default:
+            break;
+    }
+    return ESP_OK;
+}
+
+static void fetch_weather(void)
+{
+    if (weather_provider == 0) {
+        strcpy(weather_text, "");
+        return;
+    }
+    
+    weather_buf[0] = '\0';
+    char url[256];
+    
+    if (weather_provider == 1 && strlen(qweather_api_key) > 0) {
+        // 和风天气
+        snprintf(url, sizeof(url), 
+            "https://devapi.qweather.com/v7/weather/now?location=%s&key=%s",
+            weather_location, qweather_api_key);
+    } else if (weather_provider == 2 && strlen(openweather_api_key) > 0) {
+        // OpenWeatherMap
+        snprintf(url, sizeof(url),
+            "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric&lang=zh_cn",
+            weather_location, openweather_api_key);
+    } else {
+        strcpy(weather_text, "未配置API");
+        return;
+    }
+    
+    esp_http_client_config_t config = {};
+    config.url = url;
+    config.timeout_ms = 10000;
+    config.crt_bundle_attach = esp_crt_bundle_attach;
+    config.event_handler = weather_http_handler;
+    
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_err_t err = esp_http_client_perform(client);
+    
+    if (err == ESP_OK) {
+        int status = esp_http_client_get_status_code(client);
+        ESP_LOGI(TAG, "Weather API status: %d", status);
+        
+        if (status == 200 && strlen(weather_buf) > 0) {
+            if (weather_provider == 1) {
+                // 解析和风天气
+                char *temp_start = strstr(weather_buf, "\"temp\":\"");
+                if (temp_start) {
+                    temp_start += 8;
+                    char *temp_end = strchr(temp_start, '"');
+                    if (temp_end) {
+                        int len = temp_end - temp_start;
+                        if (len > 15) len = 15;
+                        strncpy(weather_temp, temp_start, len);
+                        weather_temp[len] = '\0';
+                    }
+                }
+                char *text_start = strstr(weather_buf, "\"text\":\"");
+                if (text_start) {
+                    text_start += 8;
+                    char *text_end = strchr(text_start, '"');
+                    if (text_end) {
+                        int len = text_end - text_start;
+                        if (len > 31) len = 31;
+                        char temp[32] = {0};
+                        strncpy(temp, text_start, len);
+                        snprintf(weather_text, sizeof(weather_text), "%s %s°C", temp, weather_temp);
+                    }
+                }
+            } else if (weather_provider == 2) {
+                // 解析OpenWeatherMap
+                char *temp_start = strstr(weather_buf, "\"temp\":");
+                if (temp_start) {
+                    temp_start += 7;
+                    char *temp_end = strchr(temp_start, ',');
+                    if (temp_end) {
+                        int len = temp_end - temp_start;
+                        if (len > 15) len = 15;
+                        strncpy(weather_temp, temp_start, len);
+                        weather_temp[len] = '\0';
+                    }
+                }
+                char *desc_start = strstr(weather_buf, "\"description\":\"");
+                if (desc_start) {
+                    desc_start += 15;
+                    char *desc_end = strchr(desc_start, '"');
+                    if (desc_end) {
+                        int len = desc_end - desc_start;
+                        if (len > 31) len = 31;
+                        char temp[32] = {0};
+                        strncpy(temp, desc_start, len);
+                        snprintf(weather_text, sizeof(weather_text), "%s %s°C", temp, weather_temp);
+                    }
+                }
+            }
+        }
+    }
+    
+    esp_http_client_cleanup(client);
+}
+
 // 更新Hello World页面
 static void update_hello_page(void)
 {
@@ -293,8 +414,20 @@ static void update_hello_page(void)
             last_saying_day = today;
             fetch_saying();
         }
+        
+        // 检查是否需要刷新天气（每30分钟一次）
+        if (ntp_synced && (timeinfo.tm_hour * 60 + timeinfo.tm_min) / 30 != last_weather_period) {
+            last_weather_period = (timeinfo.tm_hour * 60 + timeinfo.tm_min) / 30;
+            fetch_weather();
+        }
     }
     
+    // 更新天气显示
+    if (hello_weather_label) {
+        lv_label_set_text(hello_weather_label, weather_text);
+    }
+    
+    // 更新一言显示
     if (hello_saying_label) {
         lv_label_set_text(hello_saying_label, saying_text);
     }
@@ -918,6 +1051,7 @@ static void execute_menu_item(void)
                 lv_obj_clear_flag(hello_clock_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(hello_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
@@ -936,6 +1070,7 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(hello_clock_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
@@ -1016,6 +1151,13 @@ static void create_menu_ui(void)
     lv_obj_set_style_text_font(hello_week_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_week_label, lv_color_hex(0x444444), 0);
     lv_obj_align(hello_week_label, LV_ALIGN_CENTER, 0, 20);
+    
+    // 天气（星期下方）
+    hello_weather_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(hello_weather_label, "");
+    lv_obj_set_style_text_font(hello_weather_label, &lv_font_MiSansLight_16, 0);
+    lv_obj_set_style_text_color(hello_weather_label, lv_color_hex(0x444444), 0);
+    lv_obj_align(hello_weather_label, LV_ALIGN_CENTER, 0, 45);
     
     // 一言（最下方）
     hello_saying_label = lv_label_create(lv_scr_act());
