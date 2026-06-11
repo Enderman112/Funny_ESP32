@@ -288,14 +288,55 @@ static void fetch_weather(void)
     
     weather_buf[0] = '\0';
     char url[256];
+    char location_id[32] = {0};
     
     if (weather_provider == 1 && strlen(qweather_api_key) > 0) {
-        // 和风天气
+        // 和风天气 - 先通过GeoAPI查城市ID
+        char geo_buf[1024] = {0};
+        char geo_url[256];
+        snprintf(geo_url, sizeof(geo_url),
+            "https://geoapi.qweather.com/v2/city/lookup?location=%s&key=%s&number=1",
+            weather_location, qweather_api_key);
+        
+        esp_http_client_config_t geo_config = {};
+        geo_config.url = geo_url;
+        geo_config.timeout_ms = 5000;
+        geo_config.crt_bundle_attach = esp_crt_bundle_attach;
+        
+        esp_http_client_handle_t geo_client = esp_http_client_init(&geo_config);
+        esp_err_t geo_err = esp_http_client_perform(geo_client);
+        
+        if (geo_err == ESP_OK) {
+            int geo_status = esp_http_client_get_status_code(geo_client);
+            ESP_LOGI(TAG, "GeoAPI status: %d", geo_status);
+            if (geo_status == 200) {
+                esp_http_client_read(geo_client, geo_buf, sizeof(geo_buf) - 1);
+                // 解析location ID: "id":"101010100"
+                char *id_start = strstr(geo_buf, "\"id\":\"");
+                if (id_start) {
+                    id_start += 6;
+                    char *id_end = strchr(id_start, '"');
+                    if (id_end) {
+                        int len = id_end - id_start;
+                        if (len > 31) len = 31;
+                        strncpy(location_id, id_start, len);
+                        ESP_LOGI(TAG, "Location ID: %s", location_id);
+                    }
+                }
+            }
+        }
+        esp_http_client_cleanup(geo_client);
+        
+        if (strlen(location_id) == 0) {
+            snprintf(weather_text, sizeof(weather_text), "城市未找到");
+            return;
+        }
+        
+        // 查天气
         snprintf(url, sizeof(url), 
             "https://devapi.qweather.com/v7/weather/now?location=%s&key=%s",
-            weather_location, qweather_api_key);
+            location_id, qweather_api_key);
     } else if (weather_provider == 2 && strlen(openweather_api_key) > 0) {
-        // OpenWeatherMap
         snprintf(url, sizeof(url),
             "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric&lang=zh_cn",
             weather_location, openweather_api_key);
@@ -319,7 +360,7 @@ static void fetch_weather(void)
         
         if (status == 200 && strlen(weather_buf) > 0) {
             if (weather_provider == 1) {
-                // 解析和风天气
+                // 解析和风天气: "temp":"25","text":"晴"
                 char *temp_start = strstr(weather_buf, "\"temp\":\"");
                 if (temp_start) {
                     temp_start += 8;
@@ -344,7 +385,7 @@ static void fetch_weather(void)
                     }
                 }
             } else if (weather_provider == 2) {
-                // 解析OpenWeatherMap
+                // 解析OpenWeatherMap: "temp":25.5,"description":"晴天"
                 char *temp_start = strstr(weather_buf, "\"temp\":");
                 if (temp_start) {
                     temp_start += 7;
@@ -369,7 +410,12 @@ static void fetch_weather(void)
                     }
                 }
             }
+            ESP_LOGI(TAG, "Weather: %s", weather_text);
+        } else {
+            snprintf(weather_text, sizeof(weather_text), "获取失败");
         }
+    } else {
+        snprintf(weather_text, sizeof(weather_text), "网络错误");
     }
     
     esp_http_client_cleanup(client);
