@@ -1330,30 +1330,38 @@ static void create_menu_ui(void)
     lv_label_set_text(hello_clock_label, "--:--:--");
     lv_obj_set_style_text_font(hello_clock_label, &lv_font_montserrat_48, 0);
     lv_obj_set_style_text_color(hello_clock_label, lv_color_hex(0x000000), 0);
-    lv_obj_align(hello_clock_label, LV_ALIGN_CENTER, 0, -25);
+    lv_obj_align(hello_clock_label, LV_ALIGN_CENTER, 0, -30);
     
     // 日期（时钟上方）
     hello_date_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_date_label, "----/--/--");
-    lv_obj_set_style_text_font(hello_date_label, &lv_font_MiSansLight_16, 0);
+    lv_obj_set_style_text_font(hello_date_label, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(hello_date_label, lv_color_hex(0x444444), 0);
-    lv_obj_align(hello_date_label, LV_ALIGN_CENTER, 0, -65);
+    lv_obj_align(hello_date_label, LV_ALIGN_CENTER, 0, -70);
     
     // 星期（时钟下方）
     hello_week_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_week_label, "---");
     lv_obj_set_style_text_font(hello_week_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_week_label, lv_color_hex(0x444444), 0);
-    lv_obj_align(hello_week_label, LV_ALIGN_CENTER, 0, 20);
+    lv_obj_align(hello_week_label, LV_ALIGN_CENTER, 0, 15);
     
     // 天气（星期下方）
     hello_weather_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_weather_label, "");
     lv_obj_set_style_text_font(hello_weather_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_weather_label, lv_color_hex(0x444444), 0);
-    lv_obj_align(hello_weather_label, LV_ALIGN_CENTER, 0, 45);
+    lv_obj_align(hello_weather_label, LV_ALIGN_CENTER, 0, 38);
     
-    // 一言（最下方）
+    // 分隔线（天气和一言之间）
+    lv_obj_t *line = lv_line_create(lv_scr_act());
+    static lv_point_t line_points[] = {{120, 0}, {280, 0}};
+    lv_line_set_points(line, line_points, 2);
+    lv_obj_set_style_line_color(line, lv_color_hex(0xCCCCCC), 0);
+    lv_obj_set_style_line_width(line, 1, 0);
+    lv_obj_align(line, LV_ALIGN_CENTER, 0, 55);
+    
+    // 一言（分隔线下方）
     hello_saying_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_saying_label, "...");
     lv_obj_set_style_text_font(hello_saying_label, &lv_font_MiSansLight_16, 0);
