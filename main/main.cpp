@@ -49,9 +49,9 @@ static char ntp_timezone[32] = "UTC-8";
 // 天气数据
 static char weather_text[64] = "天气获取中...";
 static char weather_temp[16] = "--";
-static char weather_pop[16] = "--";
 static int weather_provider = 0;  // 0=none, 1=qweather, 2=openweather
 static char qweather_api_key[65] = "";
+static char qweather_apihost[64] = "";
 static char openweather_api_key[65] = "";
 static char weather_location[32] = "101010100";
 
@@ -289,6 +289,141 @@ static void fetch_weather(void)
         strcpy(weather_text, "");
         return;
     }
+    
+    weather_buf[0] = '\0';
+    char url[256];
+    char location_id[32] = {0};
+    
+    if (weather_provider == 1 && strlen(qweather_api_key) > 0) {
+        // 和风天气 - 先通过GeoAPI查城市ID
+        char geo_buf[1024] = {0};
+        char geo_url[256];
+        snprintf(geo_url, sizeof(geo_url),
+            "https://%s/geo/v2/city/lookup?location=%s&key=%s&number=1",
+            qweather_apihost, weather_location, qweather_api_key);
+        
+        esp_http_client_config_t geo_config = {};
+        geo_config.url = geo_url;
+        geo_config.timeout_ms = 5000;
+        geo_config.crt_bundle_attach = esp_crt_bundle_attach;
+        
+        esp_http_client_handle_t geo_client = esp_http_client_init(&geo_config);
+        esp_err_t geo_err = esp_http_client_perform(geo_client);
+        
+        if (geo_err == ESP_OK) {
+            int geo_status = esp_http_client_get_status_code(client);
+            ESP_LOGI(TAG, "GeoAPI status: %d", geo_status);
+            if (geo_status == 200) {
+                esp_http_client_read(geo_client, geo_buf, sizeof(geo_buf) - 1);
+                // 解析location ID: "id":"101010100"
+                char *id_start = strstr(geo_buf, "\"id\":\"");
+                if (id_start) {
+                    id_start += 6;
+                    char *id_end = strchr(id_start, '"');
+                    if (id_end) {
+                        int len = id_end - id_start;
+                        if (len > 31) len = 31;
+                        strncpy(location_id, id_start, len);
+                        ESP_LOGI(TAG, "Location ID: %s", location_id);
+                    }
+                }
+            }
+        }
+        esp_http_client_cleanup(geo_client);
+        
+        if (strlen(location_id) == 0) {
+            snprintf(weather_text, sizeof(weather_text), "城市未找到");
+            return;
+        }
+        
+        // 查天气
+        snprintf(url, sizeof(url), 
+            "https://%s/v7/weather/now?location=%s&key=%s",
+            qweather_apihost, location_id, qweather_api_key);
+    } else if (weather_provider == 2 && strlen(openweather_api_key) > 0) {
+        snprintf(url, sizeof(url),
+            "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric&lang=zh_cn",
+            weather_location, openweather_api_key);
+    } else {
+        strcpy(weather_text, "未配置API");
+        return;
+    }
+    
+    esp_http_client_config_t config = {};
+    config.url = url;
+    config.timeout_ms = 10000;
+    config.crt_bundle_attach = esp_crt_bundle_attach;
+    config.event_handler = weather_http_handler;
+    
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_err_t err = esp_http_client_perform(client);
+    
+    if (err == ESP_OK) {
+        int status = esp_http_client_get_status_code(client);
+        ESP_LOGI(TAG, "Weather API status: %d", status);
+        
+        if (status == 200 && strlen(weather_buf) > 0) {
+            if (weather_provider == 1) {
+                // 解析和风天气: "temp":"25","text":"晴"
+                char *temp_start = strstr(weather_buf, "\"temp\":\"");
+                if (temp_start) {
+                    temp_start += 8;
+                    char *temp_end = strchr(temp_start, '"');
+                    if (temp_end) {
+                        int len = temp_end - temp_start;
+                        if (len > 15) len = 15;
+                        strncpy(weather_temp, temp_start, len);
+                        weather_temp[len] = '\0';
+                    }
+                }
+                char *text_start = strstr(weather_buf, "\"text\":\"");
+                if (text_start) {
+                    text_start += 8;
+                    char *text_end = strchr(text_start, '"');
+                    if (text_end) {
+                        int len = text_end - text_start;
+                        if (len > 31) len = 31;
+                        char temp[32] = {0};
+                        strncpy(temp, text_start, len);
+                        snprintf(weather_text, sizeof(weather_text), "%s %s°C", temp, weather_temp);
+                    }
+                }
+            } else if (weather_provider == 2) {
+                // 解析OpenWeatherMap: "temp":25.5,"description":"晴天"
+                char *temp_start = strstr(weather_buf, "\"temp\":");
+                if (temp_start) {
+                    temp_start += 7;
+                    char *temp_end = strchr(temp_start, ',');
+                    if (temp_end) {
+                        int len = temp_end - temp_start;
+                        if (len > 15) len = 15;
+                        strncpy(weather_temp, temp_start, len);
+                        weather_temp[len] = '\0';
+                    }
+                }
+                char *desc_start = strstr(weather_buf, "\"description\":\"");
+                if (desc_start) {
+                    desc_start += 15;
+                    char *desc_end = strchr(desc_start, '"');
+                    if (desc_end) {
+                        int len = desc_end - desc_start;
+                        if (len > 31) len = 31;
+                        char temp[32] = {0};
+                        strncpy(temp, desc_start, len);
+                        snprintf(weather_text, sizeof(weather_text), "%s %s°C", temp, weather_temp);
+                    }
+                }
+            }
+            ESP_LOGI(TAG, "Weather: %s", weather_text);
+        } else {
+            snprintf(weather_text, sizeof(weather_text), "获取失败");
+        }
+    } else {
+        snprintf(weather_text, sizeof(weather_text), "网络错误");
+    }
+    
+    esp_http_client_cleanup(client);
+}
     
     weather_buf[0] = '\0';
     char url[256];
@@ -946,6 +1081,18 @@ const char* weather_get_qweather_key(void)
     return qweather_api_key;
 }
 
+void weather_set_qweather_apihost(const char* host)
+{
+    strncpy(qweather_apihost, host, sizeof(qweather_apihost) - 1);
+    qweather_apihost[sizeof(qweather_apihost) - 1] = '\0';
+    nvs_save_string("qweather_host", qweather_apihost);
+}
+
+const char* weather_get_qweather_apihost(void)
+{
+    return qweather_apihost;
+}
+
 void weather_set_openweather_key(const char* key)
 {
     strncpy(openweather_api_key, key, sizeof(openweather_api_key) - 1);
@@ -1519,6 +1666,7 @@ extern "C" void app_main(void)
     nvs_load_string("ntp_server", ntp_server, sizeof(ntp_server));
     nvs_load_string("ntp_tz", ntp_timezone, sizeof(ntp_timezone));
     nvs_load_string("qweather_key", qweather_api_key, sizeof(qweather_api_key));
+    nvs_load_string("qweather_host", qweather_apihost, sizeof(qweather_apihost));
     nvs_load_string("openweather_key", openweather_api_key, sizeof(openweather_api_key));
     nvs_load_string("weather_loc", weather_location, sizeof(weather_location));
     

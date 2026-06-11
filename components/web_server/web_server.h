@@ -17,6 +17,8 @@ void weather_set_provider(int provider);
 int weather_get_provider(void);
 void weather_set_qweather_key(const char* key);
 const char* weather_get_qweather_key(void);
+void weather_set_qweather_apihost(const char* host);
+const char* weather_get_qweather_apihost(void);
 void weather_set_openweather_key(const char* key);
 const char* weather_get_openweather_key(void);
 void weather_set_location(const char* loc);

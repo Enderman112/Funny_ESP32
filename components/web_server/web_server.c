@@ -21,6 +21,8 @@ extern void weather_set_provider(int provider);
 extern int weather_get_provider(void);
 extern void weather_set_qweather_key(const char* key);
 extern const char* weather_get_qweather_key(void);
+extern void weather_set_qweather_apihost(const char* host);
+extern const char* weather_get_qweather_apihost(void);
 extern void weather_set_openweather_key(const char* key);
 extern const char* weather_get_openweather_key(void);
 extern void weather_set_location(const char* loc);
@@ -299,6 +301,7 @@ static esp_err_t settings_handler(httpd_req_t *req)
     // 天气配置
     int provider = weather_get_provider();
     const char* qweather_key = weather_get_qweather_key();
+    const char* qweather_apihost = weather_get_qweather_apihost();
     const char* openweather_key = weather_get_openweather_key();
     const char* location = weather_get_location();
     len += snprintf(buf + len, WEB_BUF_SIZE - len, 
@@ -310,17 +313,20 @@ static esp_err_t settings_handler(httpd_req_t *req)
         "<option value='1'%s>和风天气</option>"
         "<option value='2'%s>OpenWeatherMap</option>"
         "</select></div>"
+        "<div class='form-group'><label>和风 API Host</label><input type='text' name='qweather_apihost' value='%s' placeholder='xxx.re.qweatherapi.com'>"
+        "<small style='color:#6c757d;'>在和风控制台查看，如 nf63yxx47w.re.qweatherapi.com</small></div>"
+        "<div class='form-group'><label>和风天气 API Key</label><input type='password' name='qweather_key' value='%s' placeholder='粘贴Key'></div>"
         "<div class='form-group'><label>地区/城市ID</label><input type='text' name='location' value='%s'>"
         "<small style='color:#6c757d;'>和风: 城市ID如101010100 | OW: 纬度,经度如39.9,116.4</small></div>"
-        "<div class='form-group'><label>和风天气 API Key</label><input type='password' name='qweather_key' value='%s' placeholder='粘贴Key'></div>"
         "<div class='form-group'><label>OpenWeather API Key</label><input type='password' name='openweather_key' value='%s' placeholder='粘贴Key'></div>"
         "<button type='submit' class='btn btn-primary'>保存</button>"
         "</form></div></div>",
         provider == 0 ? " selected" : "",
         provider == 1 ? " selected" : "",
         provider == 2 ? " selected" : "",
-        location ? location : "",
+        qweather_apihost ? qweather_apihost : "",
         qweather_key ? qweather_key : "",
+        location ? location : "",
         openweather_key ? openweather_key : "");
     
     len += snprintf(buf + len, WEB_BUF_SIZE - len, "%s", HTML_FOOTER);
@@ -570,6 +576,19 @@ static esp_err_t weather_handler(httpd_req_t *req)
         }
     }
     
+    // Parse qweather_apihost
+    p = strstr(buf, "qweather_apihost=");
+    if (p) {
+        p += 17;
+        char *end = strchr(p, '&');
+        if (end) {
+            int len = end - p;
+            if (len > 63) len = 63;
+            strncpy(qweather_apihost, p, len);
+            url_decode(qweather_apihost);
+        }
+    }
+    
     // Parse openweather_key
     p = strstr(buf, "openweather_key=");
     if (p) {
@@ -587,6 +606,7 @@ static esp_err_t weather_handler(httpd_req_t *req)
     weather_set_provider(atoi(provider_str));
     if (strlen(location) > 0) weather_set_location(location);
     if (strlen(qweather_key) > 0) weather_set_qweather_key(qweather_key);
+    if (strlen(qweather_apihost) > 0) weather_set_qweather_apihost(qweather_apihost);
     if (strlen(openweather_key) > 0) weather_set_openweather_key(openweather_key);
     
     httpd_resp_set_status(req, "302 Found");
