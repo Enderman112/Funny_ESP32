@@ -52,7 +52,22 @@ static const struct { int code; uint32_t unicode; } weather_icon_map[] = {
 // icon code字符串 -> UTF-8字符
 static void icon_code_to_utf8(const char *code, char *buf, size_t buf_size)
 {
+    // OW icon映射: "01d"->100, "01n"->150, "02d"->101, etc.
+    static const struct { const char *ow; int qweather; } ow_map[] = {
+        {"01d",100},{"01n",150},{"02d",101},{"02n",151},{"03d",102},{"03n",152},
+        {"04d",104},{"04n",104},{"09d",309},{"09n",309},{"10d",305},{"10n",305},
+        {"11d",302},{"11n",302},{"13d",400},{"13n",400},{"50d",501},{"50n",501},
+    };
     int code_int = atoi(code);
+    if (code_int == 0 && strlen(code) == 3) {
+        // OW icon code like "01d"
+        for (int i = 0; i < sizeof(ow_map)/sizeof(ow_map[0]); i++) {
+            if (strcmp(code, ow_map[i].ow) == 0) {
+                code_int = ow_map[i].qweather;
+                break;
+            }
+        }
+    }
     for (int i = 0; i < sizeof(weather_icon_map)/sizeof(weather_icon_map[0]); i++) {
         if (weather_icon_map[i].code == code_int) {
             uint32_t u = weather_icon_map[i].unicode;
@@ -480,9 +495,69 @@ static void fetch_weather(void)
             "https://%s/v7/weather/now?location=%s&key=%s",
             qweather_apihost, location_id, qweather_api_key);
     } else if (weather_provider == 2 && strlen(openweather_api_key) > 0) {
+        // OpenWeather - 先通过Geocoding API查lat/lon
+        char geo_url[256];
+        char encoded_loc[128];
+        url_encode(weather_location, encoded_loc, sizeof(encoded_loc));
+        snprintf(geo_url, sizeof(geo_url),
+            "https://api.openweathermap.org/geo/1.0/direct?q=%s&limit=1&appid=%s",
+            encoded_loc, openweather_api_key);
+        
+        esp_http_client_config_t ow_geo_config = {};
+        ow_geo_config.url = geo_url;
+        ow_geo_config.timeout_ms = 5000;
+        ow_geo_config.crt_bundle_attach = esp_crt_bundle_attach;
+        ow_geo_config.event_handler = geo_http_handler;
+        ow_geo_config.user_agent = "Mozilla/5.0";
+        ow_geo_config.disable_auto_redirect = true;
+        
+        geo_response_buf[0] = '\0';
+        geo_response_len = 0;
+        
+        esp_http_client_handle_t ow_geo_client = esp_http_client_init(&ow_geo_config);
+        esp_http_client_set_header(ow_geo_client, "Accept", "application/json");
+        esp_err_t ow_geo_err = esp_http_client_perform(ow_geo_client);
+        
+        char ow_lat[16] = {0};
+        char ow_lon[16] = {0};
+        if (ow_geo_err == ESP_OK) {
+            int ow_geo_status = esp_http_client_get_status_code(ow_geo_client);
+            char dec_ow[1024];
+            if (geo_response_len > 0) {
+                gzip_decompress((unsigned char *)geo_response_buf, geo_response_len, dec_ow, sizeof(dec_ow));
+                memcpy(geo_response_buf, dec_ow, sizeof(dec_ow));
+            }
+            ESP_LOGI(TAG, "OW GeoAPI status: %d, resp: %s", ow_geo_status, geo_response_buf);
+            if (ow_geo_status == 200) {
+                // 解析第一个结果的lat/lon: "lat":30.87,"lon":120.43
+                char *lat_start = strstr(geo_response_buf, "\"lat\":");
+                char *lon_start = strstr(geo_response_buf, "\"lon\":");
+                if (lat_start && lon_start) {
+                    lat_start += 6;
+                    char *lat_end = strchr(lat_start, ',');
+                    if (lat_end && lat_end - lat_start < 16) {
+                        strncpy(ow_lat, lat_start, lat_end - lat_start);
+                    }
+                    lon_start += 6;
+                    char *lon_end = strchr(lon_start, ',');
+                    if (!lon_end) lon_end = strchr(lon_start, '}');
+                    if (lon_end && lon_end - lon_start < 16) {
+                        strncpy(ow_lon, lon_start, lon_end - lon_start);
+                    }
+                }
+            }
+        }
+        esp_http_client_cleanup(ow_geo_client);
+        
+        if (strlen(ow_lat) == 0 || strlen(ow_lon) == 0) {
+            ESP_LOGW(TAG, "OW Geocoding failed, keeping old weather");
+            return;
+        }
+        
+        ESP_LOGI(TAG, "OW coords: lat=%s, lon=%s", ow_lat, ow_lon);
         snprintf(url, sizeof(url),
-            "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric&lang=zh_cn",
-            weather_location, openweather_api_key);
+            "https://api.openweathermap.org/data/4.0/onecall/timeline/1h?lat=%s&lon=%s&appid=%s&units=metric&lang=zh_cn",
+            ow_lat, ow_lon, openweather_api_key);
     } else {
         strcpy(weather_text, "未配置API");
         return;
@@ -548,7 +623,7 @@ static void fetch_weather(void)
                     }
                 }
             } else if (weather_provider == 2) {
-                // 解析OpenWeatherMap: "temp":25.5,"description":"晴天"
+                // 解析OW One Call 4.0: "temp":25.5,"description":"晴天","icon":"01d"
                 char *temp_start = strstr(weather_buf, "\"temp\":");
                 if (temp_start) {
                     temp_start += 7;
@@ -570,6 +645,33 @@ static void fetch_weather(void)
                         char temp[32] = {0};
                         strncpy(temp, desc_start, len);
                         snprintf(weather_text, sizeof(weather_text), "%s %s°C", temp, weather_temp);
+                    }
+                }
+                // 解析icon: "icon":"01d"
+                char *ow_icon_start = strstr(weather_buf, "\"icon\":\"");
+                if (ow_icon_start) {
+                    ow_icon_start += 8;
+                    char *ow_icon_end = strchr(ow_icon_start, '"');
+                    if (ow_icon_end && ow_icon_end - ow_icon_start < 8) {
+                        strncpy(weather_icon_code, ow_icon_start, ow_icon_end - ow_icon_start);
+                        weather_icon_code[ow_icon_end - ow_icon_start] = '\0';
+                    }
+                }
+                // 解析pop: "pop":0.5
+                char *ow_pop_start = strstr(weather_buf, "\"pop\":");
+                if (ow_pop_start) {
+                    ow_pop_start += 6;
+                    char *ow_pop_end = strchr(ow_pop_start, ',');
+                    if (ow_pop_end && ow_pop_end - ow_pop_start <= 5) {
+                        char pop_str[8] = {0};
+                        strncpy(pop_str, ow_pop_start, ow_pop_end - ow_pop_start);
+                        float pop_f = atof(pop_str) * 100.0f;
+                        int pop_int = (int)pop_f;
+                        if (pop_int > 0) {
+                            char tmp[96];
+                            snprintf(tmp, sizeof(tmp), "%s 降雨%d%%", weather_text, pop_int);
+                            strncpy(weather_text, tmp, sizeof(weather_text) - 1);
+                        }
                     }
                 }
             }
