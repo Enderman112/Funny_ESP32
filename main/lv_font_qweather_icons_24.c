@@ -20,11 +20,11 @@
 
 
 
-#ifndef LV_FONT_QWEATHER-ICONS_24
-#define LV_FONT_QWEATHER-ICONS_24 1
+#ifndef LV_FONT_QWEATHER_ICONS_24
+#define LV_FONT_QWEATHER_ICONS_24 1
 #endif
 
-#if LV_FONT_QWEATHER-ICONS_24
+#if LV_FONT_QWEATHER_ICONS_24
 
 /*-----------------
  *    BITMAPS
@@ -5885,4 +5885,4 @@ lv_font_t lv_font_qweather_icons_24 = {
 
 
 
-#endif /*#if LV_FONT_QWEATHER-ICONS_24*/
+#endif /*#if LV_FONT_QWEATHER_ICONS_24*/
