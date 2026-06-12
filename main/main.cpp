@@ -592,20 +592,18 @@ static void fetch_weather(void)
                     char dec24h[2048];
                     if (weather_buf_len > 0) {
                         gzip_decompress((unsigned char *)weather_buf, weather_buf_len, dec24h, sizeof(dec24h));
-                        memcpy(weather_buf, dec24h, sizeof(dec24h));
-                    }
-                    ESP_LOGI(TAG, "24h response (first 200): %.200s", weather_buf);
-                    // 解析第一个小时的pop: "pop":"10"
-                    char *pop_start = strstr(weather_buf, "\"pop\":\"");
-                    if (pop_start) {
-                        pop_start += 7;
-                        char *pop_end = strchr(pop_start, '"');
-                        if (pop_end && pop_end - pop_start <= 3) {
-                            char pop_val[4] = {0};
-                            strncpy(pop_val, pop_start, pop_end - pop_start);
-                            char tmp[96];
-                            snprintf(tmp, sizeof(tmp), "%s 降雨%s%%", weather_text, pop_val);
-                            strncpy(weather_text, tmp, sizeof(weather_text) - 1);
+                        // 解析第一个小时的pop: "pop":"10"
+                        char *pop_start = strstr(dec24h, "\"pop\":\"");
+                        if (pop_start) {
+                            pop_start += 7;
+                            char *pop_end = strchr(pop_start, '"');
+                            if (pop_end && pop_end - pop_start <= 3) {
+                                char pop_val[4] = {0};
+                                strncpy(pop_val, pop_start, pop_end - pop_start);
+                                char tmp[96];
+                                snprintf(tmp, sizeof(tmp), "%s 降雨%s%%", weather_text, pop_val);
+                                strncpy(weather_text, tmp, sizeof(weather_text) - 1);
+                            }
                         }
                     }
                 }
