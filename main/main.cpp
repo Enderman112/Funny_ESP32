@@ -1342,7 +1342,7 @@ static void create_menu_ui(void)
     
     // 分隔线（天气和一言之间）
     lv_obj_t *line = lv_line_create(lv_scr_act());
-    static lv_point_precise_t line_points[] = {{120, 0}, {280, 0}};
+    static lv_point_precise_t line_points[] = {{0, 0}, {160, 0}};
     lv_line_set_points(line, line_points, 2);
     lv_obj_set_style_line_color(line, lv_color_hex(0xCCCCCC), 0);
     lv_obj_set_style_line_width(line, 1, 0);
