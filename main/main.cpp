@@ -284,6 +284,22 @@ static esp_err_t weather_http_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
+static void url_encode(const char *src, char *dst, size_t dst_size)
+{
+    size_t i = 0;
+    while (*src && i < dst_size - 4) {
+        unsigned char c = (unsigned char)*src;
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            dst[i++] = c;
+        } else {
+            snprintf(dst + i, dst_size - i, "%%%02X", c);
+            i += 3;
+        }
+        src++;
+    }
+    dst[i] = '\0';
+}
+
 static void fetch_weather(void)
 {
     if (weather_provider == 0) {
@@ -299,9 +315,11 @@ static void fetch_weather(void)
         // 和风天气 - 先通过GeoAPI查城市ID
         char geo_buf[1024] = {0};
         char geo_url[256];
+        char encoded_location[128];
+        url_encode(weather_location, encoded_location, sizeof(encoded_location));
         snprintf(geo_url, sizeof(geo_url),
             "https://%s/geo/v2/city/lookup?location=%s&key=%s&number=1",
-            qweather_apihost, weather_location, qweather_api_key);
+            qweather_apihost, encoded_location, qweather_api_key);
         
         esp_http_client_config_t geo_config = {};
         geo_config.url = geo_url;
