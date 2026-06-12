@@ -314,7 +314,7 @@ static void fetch_weather(void)
     if (weather_provider == 1 && strlen(qweather_api_key) > 0) {
         // 和风天气 - 先通过GeoAPI查城市ID
         char geo_buf[1024] = {0};
-        char geo_url[256];
+        char geo_url[512];
         char encoded_location[128];
         url_encode(weather_location, encoded_location, sizeof(encoded_location));
         snprintf(geo_url, sizeof(geo_url),
