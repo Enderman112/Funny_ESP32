@@ -1679,8 +1679,9 @@ static void create_menu_ui(void)
     
     // 分隔线（天气和一言之间）
     lv_obj_t *sep_line = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(sep_line, 160, 1);
-    lv_obj_set_style_bg_color(sep_line, lv_color_hex(0xCCCCCC), 0);
+    lv_obj_set_size(sep_line, 160, 2);
+    lv_obj_set_style_bg_color(sep_line, lv_color_hex(0x888888), 0);
+    lv_obj_set_style_bg_opa(sep_line, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(sep_line, 0, 0);
     lv_obj_set_style_radius(sep_line, 0, 0);
     lv_obj_set_style_pad_all(sep_line, 0, 0);
