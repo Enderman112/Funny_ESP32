@@ -665,6 +665,9 @@ static void update_hello_page(void)
         }
     }
     
+    // 只在Hello World页更新城市/天气/图标
+    if (info_page_active || deepseek_page_active) return;
+    
     // 更新城市显示
     if (hello_city_label) {
         if (weather_provider > 0 && strlen(weather_location) > 0) {
@@ -684,11 +687,15 @@ static void update_hello_page(void)
     
     // 更新天气图标
     if (hello_weather_icon) {
-        char icon_utf8[8];
-        icon_code_to_utf8(weather_icon_code, icon_utf8, sizeof(icon_utf8));
-        if (strlen(icon_utf8) > 0) {
-            lv_label_set_text(hello_weather_icon, icon_utf8);
-            lv_obj_clear_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
+        if (weather_provider > 0 && strlen(weather_icon_code) > 0) {
+            char icon_utf8[8];
+            icon_code_to_utf8(weather_icon_code, icon_utf8, sizeof(icon_utf8));
+            if (strlen(icon_utf8) > 0) {
+                lv_label_set_text(hello_weather_icon, icon_utf8);
+                lv_obj_clear_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
+            } else {
+                lv_obj_add_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
+            }
         } else {
             lv_obj_add_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
         }
