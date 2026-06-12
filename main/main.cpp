@@ -575,27 +575,27 @@ static void fetch_weather(void)
             }
             ESP_LOGI(TAG, "Weather: %s", weather_text);
             
-            // 和风天气额外查3d获取降雨概率
+            // 和风天气额外查24h获取降雨概率
             if (weather_provider == 1 && strlen(location_id) > 0) {
-                char url3d[256];
-                snprintf(url3d, sizeof(url3d),
-                    "https://%s/v7/weather/3d?location=%s&key=%s",
+                char url24h[256];
+                snprintf(url24h, sizeof(url24h),
+                    "https://%s/v7/weather/24h?location=%s&key=%s",
                     qweather_apihost, location_id, qweather_api_key);
                 weather_buf[0] = '\0';
                 weather_buf_len = 0;
-                esp_http_client_set_url(client, url3d);
+                esp_http_client_set_url(client, url24h);
                 esp_http_client_set_method(client, HTTP_METHOD_GET);
-                esp_err_t err3d = esp_http_client_perform(client);
-                int status3d = esp_http_client_get_status_code(client);
-                ESP_LOGI(TAG, "3d API: err=%d, status=%d, buf_len=%d", err3d, status3d, weather_buf_len);
-                if (err3d == ESP_OK && status3d == 200) {
-                    char dec3d[1024];
+                esp_err_t err24h = esp_http_client_perform(client);
+                int status24h = esp_http_client_get_status_code(client);
+                ESP_LOGI(TAG, "24h API: err=%d, status=%d, buf_len=%d", err24h, status24h, weather_buf_len);
+                if (err24h == ESP_OK && status24h == 200) {
+                    char dec24h[2048];
                     if (weather_buf_len > 0) {
-                        gzip_decompress((unsigned char *)weather_buf, weather_buf_len, dec3d, sizeof(dec3d));
-                        memcpy(weather_buf, dec3d, sizeof(dec3d));
+                        gzip_decompress((unsigned char *)weather_buf, weather_buf_len, dec24h, sizeof(dec24h));
+                        memcpy(weather_buf, dec24h, sizeof(dec24h));
                     }
-                    ESP_LOGI(TAG, "3d response: %s", weather_buf);
-                    // 解析今天pop: "pop":"10"
+                    ESP_LOGI(TAG, "24h response (first 200): %.200s", weather_buf);
+                    // 解析第一个小时的pop: "pop":"10"
                     char *pop_start = strstr(weather_buf, "\"pop\":\"");
                     if (pop_start) {
                         pop_start += 7;
