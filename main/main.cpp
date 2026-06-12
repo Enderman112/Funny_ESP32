@@ -117,6 +117,7 @@ static char qweather_api_key[65] = "";
 static char qweather_apihost[64] = "";
 static char openweather_api_key[65] = "";
 static char weather_location[32] = "101010100";
+static int weather_refresh_min = 30;
 
 // NVS存储函数
 static void nvs_save_string(const char* key, const char* value)
@@ -765,9 +766,9 @@ static void update_hello_page(void)
             fetch_saying();
         }
         
-        // 检查是否需要刷新天气（每30分钟一次）
-        if (ntp_synced && (timeinfo.tm_hour * 60 + timeinfo.tm_min) / 30 != last_weather_period) {
-            last_weather_period = (timeinfo.tm_hour * 60 + timeinfo.tm_min) / 30;
+        // 检查是否需要刷新天气
+        if (ntp_synced && (timeinfo.tm_hour * 60 + timeinfo.tm_min) / weather_refresh_min != last_weather_period) {
+            last_weather_period = (timeinfo.tm_hour * 60 + timeinfo.tm_min) / weather_refresh_min;
             fetch_weather();
         }
     }
@@ -1322,6 +1323,21 @@ const char* weather_get_location(void)
     return weather_location;
 }
 
+void weather_set_refresh_min(int min)
+{
+    if (min < 5) min = 5;
+    if (min > 360) min = 360;
+    weather_refresh_min = min;
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%d", min);
+    nvs_save_string("weather_ref", buf);
+}
+
+int weather_get_refresh_min(void)
+{
+    return weather_refresh_min;
+}
+
 const char* mimo_get_cookie(void)
 {
     return mimo_cookie;
@@ -1700,7 +1716,7 @@ static void create_menu_ui(void)
     lv_label_set_text(hello_weather_icon, "");
     lv_obj_set_style_text_font(hello_weather_icon, &lv_font_qweather_icons_24, 0);
     lv_obj_set_style_text_color(hello_weather_icon, lv_color_hex(0x444444), 0);
-    lv_obj_align(hello_weather_icon, LV_ALIGN_CENTER, -60, 47);
+    lv_obj_align(hello_weather_icon, LV_ALIGN_CENTER, -80, 47);
     lv_obj_add_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
     
     // 天气（城市下方）
@@ -1711,12 +1727,17 @@ static void create_menu_ui(void)
     lv_obj_align(hello_weather_label, LV_ALIGN_CENTER, 10, 47);
     
     // 分隔线（天气和一言之间）
-    lv_obj_t *sep_line = lv_label_create(lv_scr_act());
-    lv_label_set_text(sep_line, "————————————————");
-    lv_obj_set_style_text_font(sep_line, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(sep_line, lv_color_hex(0xCCCCCC), 0);
-    lv_obj_set_style_text_align(sep_line, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_t *sep_line = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(sep_line, 200, 2);
+    lv_obj_set_style_bg_color(sep_line, lv_color_hex(0x666666), 0);
+    lv_obj_set_style_bg_opa(sep_line, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(sep_line, 0, 0);
+    lv_obj_set_style_outline_width(sep_line, 0, 0);
+    lv_obj_set_style_shadow_width(sep_line, 0, 0);
+    lv_obj_set_style_radius(sep_line, 0, 0);
+    lv_obj_set_style_pad_all(sep_line, 0, 0);
     lv_obj_align(sep_line, LV_ALIGN_CENTER, 0, 65);
+    lv_obj_move_foreground(sep_line);
     
     // 一言（分隔线下方）
     hello_saying_label = lv_label_create(lv_scr_act());
@@ -2094,6 +2115,12 @@ extern "C" void app_main(void)
     char provider_str[4] = "0";
     nvs_load_string("weather_prov", provider_str, sizeof(provider_str));
     weather_provider = atoi(provider_str);
+    
+    // 读取天气刷新频率
+    char ref_str[8] = "30";
+    nvs_load_string("weather_ref", ref_str, sizeof(ref_str));
+    weather_refresh_min = atoi(ref_str);
+    if (weather_refresh_min < 5) weather_refresh_min = 5;
     
     ESP_LOGI(TAG, "Initializing display...");
     RlcdPort.RLCD_Init();

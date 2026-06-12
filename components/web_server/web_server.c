@@ -27,6 +27,8 @@ extern void weather_set_openweather_key(const char* key);
 extern const char* weather_get_openweather_key(void);
 extern void weather_set_location(const char* loc);
 extern const char* weather_get_location(void);
+extern void weather_set_refresh_min(int min);
+extern int weather_get_refresh_min(void);
 
 static const char *TAG = "WebServer";
 
@@ -319,6 +321,8 @@ static esp_err_t settings_handler(httpd_req_t *req)
         "<div class='form-group'><label>地区/城市ID</label><input type='text' name='location' value='%s'>"
         "<small style='color:#6c757d;'>和风: 城市ID如101010100 | OW: 纬度,经度如39.9,116.4</small></div>"
         "<div class='form-group'><label>OpenWeather API Key</label><input type='password' name='openweather_key' value='%s' placeholder='粘贴Key'></div>"
+        "<div class='form-group'><label>刷新频率(分钟)</label><input type='number' name='weather_ref' value='%d' min='5' max='360'>"
+        "<small style='color:#6c757d;'>天气自动刷新间隔，5-360分钟，默认30</small></div>"
         "<button type='submit' class='btn btn-primary'>保存</button>"
         "</form></div></div>",
         provider == 0 ? " selected" : "",
@@ -327,7 +331,8 @@ static esp_err_t settings_handler(httpd_req_t *req)
         qweather_apihost ? qweather_apihost : "",
         qweather_key ? qweather_key : "",
         location ? location : "",
-        openweather_key ? openweather_key : "");
+        openweather_key ? openweather_key : "",
+        weather_get_refresh_min());
     
     len += snprintf(buf + len, WEB_BUF_SIZE - len, "%s", HTML_FOOTER);
     
@@ -609,6 +614,19 @@ static esp_err_t weather_handler(httpd_req_t *req)
     if (strlen(qweather_key) > 0) weather_set_qweather_key(qweather_key);
     if (strlen(qweather_apihost) > 0) weather_set_qweather_apihost(qweather_apihost);
     if (strlen(openweather_key) > 0) weather_set_openweather_key(openweather_key);
+    
+    // Parse weather_ref
+    p = strstr(buf, "weather_ref=");
+    if (p) {
+        p += 12;
+        char ref_str[8] = {0};
+        int i = 0;
+        while (p[i] >= '0' && p[i] <= '9' && i < 4) {
+            ref_str[i] = p[i];
+            i++;
+        }
+        if (i > 0) weather_set_refresh_min(atoi(ref_str));
+    }
     
     httpd_resp_set_status(req, "302 Found");
     httpd_resp_set_hdr(req, "Location", "/settings");
