@@ -27,6 +27,7 @@
 
 extern "C" const lv_font_t lv_font_MiSansLight_16;
 extern "C" const lv_font_t lv_font_qweather_icons_24;
+extern "C" const lv_font_t lv_font_qweather_icons_40;
 
 static const char *TAG = "HelloWorld";
 static nvs_handle_t my_nvs_handle;
@@ -887,7 +888,9 @@ static lv_obj_t *mimo_bar2_label = NULL;
 static lv_obj_t *ota_btn_label = NULL;
 
 // Weather page labels
-static lv_obj_t *wp_temp_label = NULL;      // 大温度
+static lv_obj_t *wp_city_label = NULL;       // 城市
+static lv_obj_t *wp_temp_label = NULL;       // 大温度
+static lv_obj_t *wp_icon_label = NULL;       // 天气图标(40pt)
 static lv_obj_t *wp_weather_label = NULL;    // 天气描述
 static lv_obj_t *wp_detail_label = NULL;     // 详细数据
 static lv_obj_t *wp_provider_label = NULL;   // 天气提供商
@@ -1386,8 +1389,16 @@ static void update_weather_page(void)
 {
     if (!weather_page_active || !wp_temp_label) return;
     
+    // 城市
+    if (wp_city_label) {
+        if (weather_provider > 0 && strlen(weather_location) > 0) {
+            lv_label_set_text(wp_city_label, weather_location);
+        } else {
+            lv_label_set_text(wp_city_label, "");
+        }
+    }
+    
     // 解析温度和天气描述从weather_text
-    // weather_text格式: "晴 25°C" 或 "晴 25°C 降雨10%"
     char temp_str[16] = "--";
     char desc_str[32] = "--";
     char pop_str[16] = "";
@@ -1418,6 +1429,21 @@ static void update_weather_page(void)
     char temp_display[32];
     snprintf(temp_display, sizeof(temp_display), "%s°C", temp_str);
     lv_label_set_text(wp_temp_label, temp_display);
+    
+    // 天气图标
+    if (wp_icon_label) {
+        if (weather_provider > 0 && strlen(weather_icon_code) > 0) {
+            char icon_utf8[8];
+            icon_code_to_utf8(weather_icon_code, icon_utf8, sizeof(icon_utf8));
+            if (strlen(icon_utf8) > 0) {
+                lv_label_set_text(wp_icon_label, icon_utf8);
+            } else {
+                lv_label_set_text(wp_icon_label, "");
+            }
+        } else {
+            lv_label_set_text(wp_icon_label, "");
+        }
+    }
     
     // 天气描述
     lv_label_set_text(wp_weather_label, desc_str);
@@ -1518,7 +1544,9 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(mimo_bar2, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(wp_city_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(wp_temp_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(wp_icon_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(wp_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(wp_detail_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(wp_provider_label, LV_OBJ_FLAG_HIDDEN);
@@ -1544,7 +1572,9 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(mimo_bar2, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(wp_city_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(wp_temp_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(wp_icon_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(wp_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(wp_detail_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(wp_provider_label, LV_OBJ_FLAG_HIDDEN);
@@ -1567,7 +1597,9 @@ static void execute_menu_item(void)
                 lv_obj_clear_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(wp_city_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(wp_temp_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(wp_icon_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(wp_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(wp_detail_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(wp_provider_label, LV_OBJ_FLAG_HIDDEN);
@@ -1595,7 +1627,9 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(mimo_bar2, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_bar2_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(wp_city_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(wp_temp_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(wp_icon_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(wp_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(wp_detail_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(wp_provider_label, LV_OBJ_FLAG_HIDDEN);
@@ -1678,13 +1712,11 @@ static void create_menu_ui(void)
     lv_obj_align(hello_weather_label, LV_ALIGN_CENTER, 10, 47);
     
     // 分隔线（天气和一言之间）
-    lv_obj_t *sep_line = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(sep_line, 160, 2);
-    lv_obj_set_style_bg_color(sep_line, lv_color_hex(0x888888), 0);
-    lv_obj_set_style_bg_opa(sep_line, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(sep_line, 0, 0);
-    lv_obj_set_style_radius(sep_line, 0, 0);
-    lv_obj_set_style_pad_all(sep_line, 0, 0);
+    lv_obj_t *sep_line = lv_label_create(lv_scr_act());
+    lv_label_set_text(sep_line, "————————————————");
+    lv_obj_set_style_text_font(sep_line, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(sep_line, lv_color_hex(0xCCCCCC), 0);
+    lv_obj_set_style_text_align(sep_line, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(sep_line, LV_ALIGN_CENTER, 0, 65);
     
     // 一言（分隔线下方）
@@ -1772,20 +1804,36 @@ static void create_menu_ui(void)
     lv_obj_align(ota_btn_label, LV_ALIGN_BOTTOM_MID, 0, -10);
     lv_obj_add_flag(ota_btn_label, LV_OBJ_FLAG_HIDDEN);
     
+    // 天气页 - 城市（顶部）
+    wp_city_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(wp_city_label, "");
+    lv_obj_set_style_text_font(wp_city_label, &lv_font_MiSansLight_16, 0);
+    lv_obj_set_style_text_color(wp_city_label, lv_color_hex(0x444444), 0);
+    lv_obj_align(wp_city_label, LV_ALIGN_TOP_LEFT, 20, 15);
+    lv_obj_add_flag(wp_city_label, LV_OBJ_FLAG_HIDDEN);
+    
     // 天气页 - 大温度（左上角）
     wp_temp_label = lv_label_create(lv_scr_act());
     lv_label_set_text(wp_temp_label, "--°C");
     lv_obj_set_style_text_font(wp_temp_label, &lv_font_montserrat_48, 0);
     lv_obj_set_style_text_color(wp_temp_label, lv_color_hex(0x000000), 0);
-    lv_obj_align(wp_temp_label, LV_ALIGN_TOP_LEFT, 20, 30);
+    lv_obj_align(wp_temp_label, LV_ALIGN_TOP_LEFT, 20, 40);
     lv_obj_add_flag(wp_temp_label, LV_OBJ_FLAG_HIDDEN);
     
-    // 天气页 - 天气描述（温度右边）
+    // 天气页 - 天气图标（右边与温度对齐）
+    wp_icon_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(wp_icon_label, "");
+    lv_obj_set_style_text_font(wp_icon_label, &lv_font_qweather_icons_40, 0);
+    lv_obj_set_style_text_color(wp_icon_label, lv_color_hex(0x444444), 0);
+    lv_obj_align(wp_icon_label, LV_ALIGN_TOP_RIGHT, -20, 40);
+    lv_obj_add_flag(wp_icon_label, LV_OBJ_FLAG_HIDDEN);
+    
+    // 天气页 - 天气描述（温度下方）
     wp_weather_label = lv_label_create(lv_scr_act());
     lv_label_set_text(wp_weather_label, "--");
     lv_obj_set_style_text_font(wp_weather_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(wp_weather_label, lv_color_hex(0x444444), 0);
-    lv_obj_align(wp_weather_label, LV_ALIGN_TOP_LEFT, 20, 90);
+    lv_obj_align(wp_weather_label, LV_ALIGN_TOP_LEFT, 20, 100);
     lv_obj_add_flag(wp_weather_label, LV_OBJ_FLAG_HIDDEN);
     
     // 天气页 - 详细数据
@@ -1793,7 +1841,7 @@ static void create_menu_ui(void)
     lv_label_set_text(wp_detail_label, "");
     lv_obj_set_style_text_font(wp_detail_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(wp_detail_label, lv_color_hex(0x444444), 0);
-    lv_obj_align(wp_detail_label, LV_ALIGN_TOP_LEFT, 20, 115);
+    lv_obj_align(wp_detail_label, LV_ALIGN_TOP_LEFT, 20, 125);
     lv_obj_add_flag(wp_detail_label, LV_OBJ_FLAG_HIDDEN);
     
     // 天气页 - 天气提供商（底部）
@@ -1806,7 +1854,7 @@ static void create_menu_ui(void)
     
     // Create menu panel (right-top corner)
     menu_panel = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(menu_panel, 120, 80);
+    lv_obj_set_size(menu_panel, 120, 100);
     lv_obj_align(menu_panel, LV_ALIGN_TOP_RIGHT, -10, 10);
     lv_obj_set_style_bg_color(menu_panel, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_border_width(menu_panel, 2, 0);
