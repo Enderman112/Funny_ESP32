@@ -772,7 +772,7 @@ static void update_hello_page(void)
     }
     
     // 只在Hello World页更新城市/天气/图标
-    if (info_page_active || deepseek_page_active) return;
+    if (info_page_active || deepseek_page_active || weather_page_active) return;
     
     // 更新城市显示
     if (hello_city_label) {
