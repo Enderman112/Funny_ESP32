@@ -1736,7 +1736,7 @@ static void create_menu_ui(void)
     lv_obj_set_style_shadow_width(sep_line, 0, 0);
     lv_obj_set_style_radius(sep_line, 0, 0);
     lv_obj_set_style_pad_all(sep_line, 0, 0);
-    lv_obj_align(sep_line, LV_ALIGN_CENTER, 0, 65);
+    lv_obj_align(sep_line, LV_ALIGN_CENTER, 0, 55);
     lv_obj_move_foreground(sep_line);
     
     // 一言（分隔线下方）
