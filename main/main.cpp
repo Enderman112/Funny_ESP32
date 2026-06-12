@@ -545,7 +545,7 @@ static void fetch_weather(void)
                         if (pop_end && pop_end - pop_start <= 3) {
                             char pop_val[4] = {0};
                             strncpy(pop_val, pop_start, pop_end - pop_start);
-                            char tmp[64];
+                            char tmp[96];
                             snprintf(tmp, sizeof(tmp), "%s 降雨%s%%", weather_text, pop_val);
                             strncpy(weather_text, tmp, sizeof(weather_text) - 1);
                         }
