@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 24 px
  * Bpp: 1
- * Opts: --bpp 1 --size 24 --stride 1 --align 1 --font qweather-icons.ttf --range 61697-62208 --format lvgl -o lv_font_qweather-icons_24.c
+ * Opts: --bpp 1 --size 24 --stride 1 --align 1 --font qweather-icons.ttf --range 61697-62208 --format lvgl -o lv_font_qweather_icons_24.c
  ******************************************************************************/
 
 #ifdef __has_include
@@ -5860,9 +5860,9 @@ static lv_font_fmt_txt_dsc_t font_dsc = {
 
 /*Initialize a public general font descriptor*/
 #if LVGL_VERSION_MAJOR >= 8
-const lv_font_t lv_font_qweather-icons_24 = {
+const lv_font_t lv_font_qweather_icons_24 = {
 #else
-lv_font_t lv_font_qweather-icons_24 = {
+lv_font_t lv_font_qweather_icons_24 = {
 #endif
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,    /*Function pointer to get glyph's data*/
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,    /*Function pointer to get glyph's bitmap*/

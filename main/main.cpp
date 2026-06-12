@@ -26,7 +26,7 @@
 #include "adc_bsp.h"
 
 extern "C" const lv_font_t lv_font_MiSansLight_16;
-extern "C" const lv_font_t lv_font_qweather-icons_24;
+extern "C" const lv_font_t lv_font_qweather_icons_24;
 
 static const char *TAG = "HelloWorld";
 static nvs_handle_t my_nvs_handle;
@@ -1452,7 +1452,7 @@ static void create_menu_ui(void)
     // 天气图标（天气文字左边）
     hello_weather_icon = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_weather_icon, "");
-    lv_obj_set_style_text_font(hello_weather_icon, &lv_font_qweather-icons_24, 0);
+    lv_obj_set_style_text_font(hello_weather_icon, &lv_font_qweather_icons_24, 0);
     lv_obj_set_style_text_color(hello_weather_icon, lv_color_hex(0x444444), 0);
     lv_obj_align(hello_weather_icon, LV_ALIGN_CENTER, -60, 47);
     lv_obj_add_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
