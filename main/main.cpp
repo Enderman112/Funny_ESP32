@@ -13,6 +13,7 @@
 #include <esp_sntp.h>
 #include <nvs_flash.h>
 #include <nvs.h>
+#include <zlib.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 
@@ -213,15 +214,17 @@ static void update_clock(void)
 
 // 获取每日一言
 // 一言HTTP回调
-static char saying_buf[256] = {0};
+static char saying_buf[512] = {0};
+static int saying_buf_len = 0;
 
 static esp_err_t saying_http_handler(esp_http_client_event_t *evt)
 {
     switch (evt->event_id) {
         case HTTP_EVENT_ON_DATA:
-            if (evt->data_len > 0 && evt->data_len < 256) {
-                memcpy(saying_buf, evt->data, evt->data_len);
-                saying_buf[evt->data_len] = '\0';
+            if (evt->data_len > 0 && saying_buf_len + evt->data_len < 512) {
+                memcpy(saying_buf + saying_buf_len, evt->data, evt->data_len);
+                saying_buf_len += evt->data_len;
+                saying_buf[saying_buf_len] = '\0';
             }
             break;
         default:
@@ -233,12 +236,15 @@ static esp_err_t saying_http_handler(esp_http_client_event_t *evt)
 static void fetch_saying(void)
 {
     saying_buf[0] = '\0';
+    saying_buf_len = 0;
     
     esp_http_client_config_t config = {};
     config.url = "https://uapis.cn/api/v1/saying";
     config.timeout_ms = 5000;
     config.crt_bundle_attach = esp_crt_bundle_attach;
     config.event_handler = saying_http_handler;
+    config.user_agent = "Mozilla/5.0";
+    config.disable_auto_redirect = true;
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "Accept", "application/json");
@@ -246,6 +252,12 @@ static void fetch_saying(void)
     
     if (err == ESP_OK) {
         int status = esp_http_client_get_status_code(client);
+        // gzip解压
+        char decompressed[512];
+        if (saying_buf_len > 0) {
+            gzip_decompress((unsigned char *)saying_buf, saying_buf_len, decompressed, sizeof(decompressed));
+            memcpy(saying_buf, decompressed, sizeof(decompressed));
+        }
         ESP_LOGI(TAG, "Saying API status: %d, response: %s", status, saying_buf);
         if (status == 200 && strlen(saying_buf) > 0) {
             char *text_start = strstr(saying_buf, "\"text\":\"");
@@ -266,16 +278,42 @@ static void fetch_saying(void)
     esp_http_client_cleanup(client);
 }
 
+// gzip解压: src/len -> dst/dst_size, 返回解压后长度, 失败返回-1
+static int gzip_decompress(const unsigned char *src, int len, char *dst, int dst_size)
+{
+    if (len < 2 || src[0] != 0x1f || src[1] != 0x8b) {
+        // 非gzip，直接拷贝
+        int copy = len < dst_size ? len : dst_size - 1;
+        memcpy(dst, src, copy);
+        dst[copy] = '\0';
+        return copy;
+    }
+    z_stream stream = {};
+    stream.next_in = (Bytef *)src;
+    stream.avail_in = len;
+    if (inflateInit2(&stream, 15 + 16) != Z_OK) return -1;
+    stream.next_out = (Bytef *)dst;
+    stream.avail_out = dst_size - 1;
+    int ret = inflate(&stream, Z_FINISH);
+    inflateEnd(&stream);
+    if (ret != Z_STREAM_END && ret != Z_OK) return -1;
+    int out_len = stream.total_out;
+    dst[out_len] = '\0';
+    return out_len;
+}
+
 // 天气HTTP回调
-static char weather_buf[512] = {0};
+static char weather_buf[1024] = {0};
+static int weather_buf_len = 0;
 
 static esp_err_t weather_http_handler(esp_http_client_event_t *evt)
 {
     switch (evt->event_id) {
         case HTTP_EVENT_ON_DATA:
-            if (evt->data_len > 0 && evt->data_len < 512) {
-                memcpy(weather_buf, evt->data, evt->data_len);
-                weather_buf[evt->data_len] = '\0';
+            if (evt->data_len > 0 && weather_buf_len + evt->data_len < 1024) {
+                memcpy(weather_buf + weather_buf_len, evt->data, evt->data_len);
+                weather_buf_len += evt->data_len;
+                weather_buf[weather_buf_len] = '\0';
             }
             break;
         default:
@@ -331,6 +369,7 @@ static void fetch_weather(void)
     }
     
     weather_buf[0] = '\0';
+    weather_buf_len = 0;
     char url[256];
     char location_id[32] = {0};
     
@@ -348,17 +387,24 @@ static void fetch_weather(void)
         geo_config.timeout_ms = 5000;
         geo_config.crt_bundle_attach = esp_crt_bundle_attach;
         geo_config.event_handler = geo_http_handler;
+        geo_config.user_agent = "Mozilla/5.0";
+        geo_config.disable_auto_redirect = true;
         
         geo_response_buf[0] = '\0';
         geo_response_len = 0;
         
         esp_http_client_handle_t geo_client = esp_http_client_init(&geo_config);
         esp_http_client_set_header(geo_client, "Accept", "application/json");
-        esp_http_client_set_header(geo_client, "Accept-Encoding", "identity");
         esp_err_t geo_err = esp_http_client_perform(geo_client);
         
         if (geo_err == ESP_OK) {
             int geo_status = esp_http_client_get_status_code(geo_client);
+            // gzip解压
+            char decompressed[1024];
+            if (geo_response_len > 0) {
+                gzip_decompress((unsigned char *)geo_response_buf, geo_response_len, decompressed, sizeof(decompressed));
+                memcpy(geo_response_buf, decompressed, sizeof(decompressed));
+            }
             ESP_LOGI(TAG, "GeoAPI status: %d, response: %s", geo_status, geo_response_buf);
             if (geo_status == 200 && strlen(geo_response_buf) > 0) {
                 // 解析location ID: "id":"101010100"
@@ -400,15 +446,23 @@ static void fetch_weather(void)
     config.timeout_ms = 10000;
     config.crt_bundle_attach = esp_crt_bundle_attach;
     config.event_handler = weather_http_handler;
+    config.user_agent = "Mozilla/5.0";
+    config.disable_auto_redirect = true;
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "Accept", "application/json");
-    esp_http_client_set_header(client, "Accept-Encoding", "identity");
     esp_err_t err = esp_http_client_perform(client);
     
     if (err == ESP_OK) {
         int status = esp_http_client_get_status_code(client);
         ESP_LOGI(TAG, "Weather API status: %d", status);
+        
+        // gzip解压
+        char decompressed[1024];
+        if (weather_buf_len > 0) {
+            gzip_decompress((unsigned char *)weather_buf, weather_buf_len, decompressed, sizeof(decompressed));
+            memcpy(weather_buf, decompressed, sizeof(decompressed));
+        }
         
         if (status == 200 && strlen(weather_buf) > 0) {
             if (weather_provider == 1) {
@@ -727,6 +781,7 @@ static void fetch_deepseek_info(void)
     esp_http_client_set_header(client, "Authorization", auth_header);
     esp_http_client_set_header(client, "Accept", "application/json");
     esp_http_client_set_header(client, "User-Agent", "ESP32/1.0");
+    esp_http_client_set_header(client, "Accept-Encoding", "none");
     
     ESP_LOGI(TAG, "Performing HTTP request...");
     esp_err_t err = esp_http_client_perform(client);
@@ -755,6 +810,7 @@ static void fetch_deepseek_info(void)
     client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "Authorization", auth_header);
     esp_http_client_set_header(client, "Accept", "application/json");
+    esp_http_client_set_header(client, "Accept-Encoding", "none");
     err = esp_http_client_perform(client);
     
     if (err != ESP_OK) {
@@ -883,6 +939,7 @@ static void fetch_mimo_usage(void)
         "Host: platform.xiaomimimo.com\r\n"
         "Cookie: %s\r\n"
         "Accept: application/json\r\n"
+        "Accept-Encoding: none\r\n"
         "Connection: close\r\n"
         "\r\n",
         mimo_cookie);

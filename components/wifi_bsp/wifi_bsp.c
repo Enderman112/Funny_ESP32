@@ -86,6 +86,7 @@ void wifi_bsp_fetch_latest_version(void)
     ESP_LOGI(TAG, "Fetching latest version...");
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "User-Agent", "ESP32");
+    esp_http_client_set_header(client, "Accept-Encoding", "none");
     esp_err_t err = esp_http_client_perform(client);
     
     if (err != ESP_OK) {
