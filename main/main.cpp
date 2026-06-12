@@ -519,6 +519,40 @@ static void fetch_weather(void)
                 }
             }
             ESP_LOGI(TAG, "Weather: %s", weather_text);
+            
+            // 和风天气额外查3d获取降雨概率
+            if (weather_provider == 1 && strlen(location_id) > 0) {
+                char url3d[256];
+                snprintf(url3d, sizeof(url3d),
+                    "https://%s/v7/weather/3d?location=%s&key=%s",
+                    qweather_apihost, location_id, qweather_api_key);
+                weather_buf[0] = '\0';
+                weather_buf_len = 0;
+                esp_http_client_set_url(client, url3d);
+                esp_http_client_set_method(client, HTTP_METHOD_GET);
+                if (esp_http_client_perform(client) == ESP_OK &&
+                    esp_http_client_get_status_code(client) == 200) {
+                    char dec3d[1024];
+                    if (weather_buf_len > 0) {
+                        gzip_decompress((unsigned char *)weather_buf, weather_buf_len, dec3d, sizeof(dec3d));
+                        memcpy(weather_buf, dec3d, sizeof(dec3d));
+                    }
+                    // 解析今天pop: "pop":"10"
+                    char *pop_start = strstr(weather_buf, "\"pop\":\"");
+                    if (pop_start) {
+                        pop_start += 7;
+                        char *pop_end = strchr(pop_start, '"');
+                        if (pop_end && pop_end - pop_start <= 3) {
+                            char pop_val[4] = {0};
+                            strncpy(pop_val, pop_start, pop_end - pop_start);
+                            char tmp[64];
+                            snprintf(tmp, sizeof(tmp), "%s 降雨%s%%", weather_text, pop_val);
+                            strncpy(weather_text, tmp, sizeof(weather_text) - 1);
+                        }
+                    }
+                }
+                ESP_LOGI(TAG, "Weather+pop: %s", weather_text);
+            }
         } else {
             snprintf(weather_text, sizeof(weather_text), "获取失败");
         }
@@ -1347,12 +1381,13 @@ static void create_menu_ui(void)
     lv_obj_align(hello_weather_label, LV_ALIGN_CENTER, 0, 47);
     
     // 分隔线（天气和一言之间）
-    lv_obj_t *line = lv_line_create(lv_scr_act());
-    static lv_point_precise_t line_points[] = {{0, 0}, {160, 0}};
-    lv_line_set_points(line, line_points, 2);
-    lv_obj_set_style_line_color(line, lv_color_hex(0xCCCCCC), 0);
-    lv_obj_set_style_line_width(line, 1, 0);
-    lv_obj_align(line, LV_ALIGN_CENTER, 0, 65);
+    lv_obj_t *sep_line = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(sep_line, 160, 1);
+    lv_obj_set_style_bg_color(sep_line, lv_color_hex(0xCCCCCC), 0);
+    lv_obj_set_style_border_width(sep_line, 0, 0);
+    lv_obj_set_style_radius(sep_line, 0, 0);
+    lv_obj_set_style_pad_all(sep_line, 0, 0);
+    lv_obj_align(sep_line, LV_ALIGN_CENTER, 0, 65);
     
     // 一言（分隔线下方）
     hello_saying_label = lv_label_create(lv_scr_act());
