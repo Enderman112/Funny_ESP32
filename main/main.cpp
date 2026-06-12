@@ -1427,7 +1427,7 @@ static void update_weather_page(void)
     if (strlen(pop_str) > 0) {
         snprintf(detail_buf, sizeof(detail_buf), "%s", pop_str);
     } else {
-        snprintf(detail_buf, sizeof(detail_buf), "");
+        detail_buf[0] = '\0';
     }
     lv_label_set_text(wp_detail_label, detail_buf);
     
