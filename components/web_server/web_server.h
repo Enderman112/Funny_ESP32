@@ -23,6 +23,8 @@ void weather_set_openweather_key(const char* key);
 const char* weather_get_openweather_key(void);
 void weather_set_location(const char* loc);
 const char* weather_get_location(void);
+void weather_set_refresh_min(int min);
+int weather_get_refresh_min(void);
 
 #ifdef __cplusplus
 }
