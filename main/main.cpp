@@ -302,6 +302,9 @@ static void url_encode(const char *src, char *dst, size_t dst_size)
 
 static void fetch_weather(void)
 {
+    ESP_LOGI(TAG, "fetch_weather: provider=%d, location=%s, apihost=%s", 
+             weather_provider, weather_location, qweather_apihost);
+    
     if (weather_provider == 0) {
         strcpy(weather_text, "");
         return;
@@ -333,7 +336,8 @@ static void fetch_weather(void)
             int geo_status = esp_http_client_get_status_code(geo_client);
             ESP_LOGI(TAG, "GeoAPI status: %d", geo_status);
             if (geo_status == 200) {
-                esp_http_client_read(geo_client, geo_buf, sizeof(geo_buf) - 1);
+                int read_len = esp_http_client_read(geo_client, geo_buf, sizeof(geo_buf) - 1);
+                ESP_LOGI(TAG, "GeoAPI response (%d bytes): %s", read_len, geo_buf);
                 // 解析location ID: "id":"101010100"
                 char *id_start = strstr(geo_buf, "\"id\":\"");
                 if (id_start) {
@@ -497,6 +501,7 @@ static void update_hello_page(void)
         if (weather_provider > 0 && strlen(weather_location) > 0) {
             lv_label_set_text(hello_city_label, weather_location);
             lv_obj_clear_flag(hello_city_label, LV_OBJ_FLAG_HIDDEN);
+            ESP_LOGD(TAG, "City: %s", weather_location);
         } else {
             lv_obj_add_flag(hello_city_label, LV_OBJ_FLAG_HIDDEN);
         }
@@ -505,6 +510,7 @@ static void update_hello_page(void)
     // 更新天气显示
     if (hello_weather_label) {
         lv_label_set_text(hello_weather_label, weather_text);
+        ESP_LOGD(TAG, "Weather: %s", weather_text);
     }
     
     // 更新一言显示
