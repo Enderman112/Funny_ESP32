@@ -1384,8 +1384,6 @@ static void update_info_page(void)
     lv_label_set_text(hello_label, info_buf);
 }
 
-static bool weather_page_active = false;
-
 static void update_weather_page(void)
 {
     if (!weather_page_active || !wp_temp_label) return;
