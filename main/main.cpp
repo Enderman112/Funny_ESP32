@@ -1224,6 +1224,7 @@ static void execute_menu_item(void)
                 lv_obj_clear_flag(hello_clock_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(hello_city_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
@@ -1243,6 +1244,7 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(hello_clock_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_city_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
@@ -1263,6 +1265,8 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(hello_clock_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_city_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
