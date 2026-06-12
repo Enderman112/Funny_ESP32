@@ -530,13 +530,16 @@ static void fetch_weather(void)
                 weather_buf_len = 0;
                 esp_http_client_set_url(client, url3d);
                 esp_http_client_set_method(client, HTTP_METHOD_GET);
-                if (esp_http_client_perform(client) == ESP_OK &&
-                    esp_http_client_get_status_code(client) == 200) {
+                esp_err_t err3d = esp_http_client_perform(client);
+                int status3d = esp_http_client_get_status_code(client);
+                ESP_LOGI(TAG, "3d API: err=%d, status=%d, buf_len=%d", err3d, status3d, weather_buf_len);
+                if (err3d == ESP_OK && status3d == 200) {
                     char dec3d[1024];
                     if (weather_buf_len > 0) {
                         gzip_decompress((unsigned char *)weather_buf, weather_buf_len, dec3d, sizeof(dec3d));
                         memcpy(weather_buf, dec3d, sizeof(dec3d));
                     }
+                    ESP_LOGI(TAG, "3d response: %s", weather_buf);
                     // 解析今天pop: "pop":"10"
                     char *pop_start = strstr(weather_buf, "\"pop\":\"");
                     if (pop_start) {
