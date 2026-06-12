@@ -680,7 +680,7 @@ static lv_obj_t *hello_label = NULL;
 // Info page state
 static bool info_page_active = false;
 static int info_selected = 0;  // 0: WiFi状态, 1: AP开关, 2: 显示秒, 3: 同步时间
-static const int info_count = 4;
+static const int info_count = 5;
 
 // DeepSeek page state
 static bool deepseek_page_active = false;
@@ -1166,6 +1166,7 @@ static void update_info_page(void)
     const char* cursor2 = (info_selected == 1) ? "> " : "  ";
     const char* cursor3 = (info_selected == 2) ? "> " : "  ";
     const char* cursor4 = (info_selected == 3) ? "> " : "  ";
+    const char* cursor5 = (info_selected == 4) ? "> " : "  ";
     const char* ntp_status = ntp_synced ? "已同步" : "同步失败";
     const char* sec_status = clock_show_seconds ? "开" : "关";
     
@@ -1177,7 +1178,8 @@ static void update_info_page(void)
              "%sWiFi: %s\n"
              "%sAP热点: %s\n"
              "%s显示秒: %s\n"
-             "%s同步时间",
+             "%s同步时间\n"
+             "%s更新天气",
              FIRMWARE_VERSION,
              wifi_bsp_get_latest_version(),
              ntp_status,
@@ -1187,7 +1189,8 @@ static void update_info_page(void)
              ap_status,
              cursor3,
              sec_status,
-             cursor4);
+             cursor4,
+             cursor5);
     
     lv_obj_set_style_text_font(hello_label, &lv_font_MiSansLight_16, 0);
     lv_label_set_text(hello_label, info_buf);
@@ -1652,6 +1655,11 @@ static void button_task(void *arg)
                             ntp_synced = false;
                             esp_sntp_stop();
                             obtain_time();
+                            update_info_page();
+                            break;
+                        case 4:  // 更新天气
+                            fetch_weather();
+                            update_hello_page();
                             update_info_page();
                             break;
                     }
