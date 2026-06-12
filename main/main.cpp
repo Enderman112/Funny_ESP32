@@ -233,6 +233,8 @@ static esp_err_t saying_http_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
+static int gzip_decompress(const unsigned char *src, int len, char *dst, int dst_size);
+
 static void fetch_saying(void)
 {
     saying_buf[0] = '\0';
