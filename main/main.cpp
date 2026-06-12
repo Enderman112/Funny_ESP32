@@ -619,6 +619,9 @@ static void fetch_weather(void)
     esp_http_client_cleanup(client);
 }
 
+static bool info_page_active;
+static bool deepseek_page_active;
+
 static void update_hello_page(void)
 {
     if (!hello_clock_label) return;
