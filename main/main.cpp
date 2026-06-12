@@ -284,6 +284,26 @@ static esp_err_t weather_http_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
+// GeoAPI HTTP回调
+static char geo_response_buf[1024] = {0};
+static int geo_response_len = 0;
+
+static esp_err_t geo_http_handler(esp_http_client_event_t *evt)
+{
+    switch (evt->event_id) {
+        case HTTP_EVENT_ON_DATA:
+            if (evt->data_len > 0 && geo_response_len + evt->data_len < 1024) {
+                memcpy(geo_response_buf + geo_response_len, evt->data, evt->data_len);
+                geo_response_len += evt->data_len;
+                geo_response_buf[geo_response_len] = '\0';
+            }
+            break;
+        default:
+            break;
+    }
+    return ESP_OK;
+}
+
 static void url_encode(const char *src, char *dst, size_t dst_size)
 {
     size_t i = 0;
@@ -316,7 +336,6 @@ static void fetch_weather(void)
     
     if (weather_provider == 1 && strlen(qweather_api_key) > 0) {
         // 和风天气 - 先通过GeoAPI查城市ID
-        char geo_buf[1024] = {0};
         char geo_url[512];
         char encoded_location[128];
         url_encode(weather_location, encoded_location, sizeof(encoded_location));
@@ -328,18 +347,22 @@ static void fetch_weather(void)
         geo_config.url = geo_url;
         geo_config.timeout_ms = 5000;
         geo_config.crt_bundle_attach = esp_crt_bundle_attach;
+        geo_config.event_handler = geo_http_handler;
+        
+        geo_response_buf[0] = '\0';
+        geo_response_len = 0;
         
         esp_http_client_handle_t geo_client = esp_http_client_init(&geo_config);
+        esp_http_client_set_header(geo_client, "Accept", "application/json");
+        esp_http_client_set_header(geo_client, "Accept-Encoding", "identity");
         esp_err_t geo_err = esp_http_client_perform(geo_client);
         
         if (geo_err == ESP_OK) {
             int geo_status = esp_http_client_get_status_code(geo_client);
-            ESP_LOGI(TAG, "GeoAPI status: %d", geo_status);
-            if (geo_status == 200) {
-                int read_len = esp_http_client_read(geo_client, geo_buf, sizeof(geo_buf) - 1);
-                ESP_LOGI(TAG, "GeoAPI response (%d bytes): %s", read_len, geo_buf);
+            ESP_LOGI(TAG, "GeoAPI status: %d, response: %s", geo_status, geo_response_buf);
+            if (geo_status == 200 && strlen(geo_response_buf) > 0) {
                 // 解析location ID: "id":"101010100"
-                char *id_start = strstr(geo_buf, "\"id\":\"");
+                char *id_start = strstr(geo_response_buf, "\"id\":\"");
                 if (id_start) {
                     id_start += 6;
                     char *id_end = strchr(id_start, '"');
