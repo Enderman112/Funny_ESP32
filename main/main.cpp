@@ -426,7 +426,7 @@ static void fetch_weather(void)
         esp_http_client_cleanup(geo_client);
         
         if (strlen(location_id) == 0) {
-            snprintf(weather_text, sizeof(weather_text), "城市未找到");
+            ESP_LOGW(TAG, "GeoAPI: city not found, keeping old weather");
             return;
         }
         
@@ -554,10 +554,10 @@ static void fetch_weather(void)
                 ESP_LOGI(TAG, "Weather+pop: %s", weather_text);
             }
         } else {
-            snprintf(weather_text, sizeof(weather_text), "获取失败");
+            ESP_LOGW(TAG, "Weather API failed: %d, keeping old weather", status);
         }
     } else {
-        snprintf(weather_text, sizeof(weather_text), "网络错误");
+        ESP_LOGW(TAG, "Weather network error, keeping old weather");
     }
     
     esp_http_client_cleanup(client);
