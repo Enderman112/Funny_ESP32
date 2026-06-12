@@ -619,8 +619,8 @@ static void fetch_weather(void)
     esp_http_client_cleanup(client);
 }
 
-static bool info_page_active;
-static bool deepseek_page_active;
+static bool info_page_active = false;
+static bool deepseek_page_active = false;
 
 static void update_hello_page(void)
 {
@@ -756,12 +756,10 @@ static lv_obj_t *menu_labels[3] = {NULL};
 static lv_obj_t *hello_label = NULL;
 
 // Info page state
-static bool info_page_active = false;
 static int info_selected = 0;  // 0: WiFi状态, 1: AP开关, 2: 显示秒, 3: 同步时间
 static const int info_count = 5;
 
 // DeepSeek page state
-static bool deepseek_page_active = false;
 static char deepseek_balance[32] = "未知";
 static char deepseek_usage[32] = "未知";
 static char deepseek_error[64] = "";
