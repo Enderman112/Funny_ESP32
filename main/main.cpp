@@ -1250,7 +1250,7 @@ static void create_menu_ui(void)
     lv_label_set_text(hello_city_label, "");
     lv_obj_set_style_text_font(hello_city_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_city_label, lv_color_hex(0x444444), 0);
-    lv_obj_align(hello_city_label, LV_ALIGN_CENTER, 0, 38);
+    lv_obj_align(hello_city_label, LV_ALIGN_CENTER, 0, 40);
     lv_obj_add_flag(hello_city_label, LV_OBJ_FLAG_HIDDEN);
     
     // 天气（城市下方）
@@ -1258,7 +1258,7 @@ static void create_menu_ui(void)
     lv_label_set_text(hello_weather_label, "");
     lv_obj_set_style_text_font(hello_weather_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_weather_label, lv_color_hex(0x444444), 0);
-    lv_obj_align(hello_weather_label, LV_ALIGN_CENTER, 0, 58);
+    lv_obj_align(hello_weather_label, LV_ALIGN_CENTER, 0, 62);
     
     // 分隔线（天气和一言之间）
     lv_obj_t *line = lv_line_create(lv_scr_act());
@@ -1266,14 +1266,14 @@ static void create_menu_ui(void)
     lv_line_set_points(line, line_points, 2);
     lv_obj_set_style_line_color(line, lv_color_hex(0xCCCCCC), 0);
     lv_obj_set_style_line_width(line, 1, 0);
-    lv_obj_align(line, LV_ALIGN_CENTER, 0, 55);
+    lv_obj_align(line, LV_ALIGN_CENTER, 0, 80);
     
     // 一言（分隔线下方）
     hello_saying_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_saying_label, "...");
     lv_obj_set_style_text_font(hello_saying_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_saying_label, lv_color_hex(0x666666), 0);
-    lv_obj_align(hello_saying_label, LV_ALIGN_CENTER, 0, 70);
+    lv_obj_align(hello_saying_label, LV_ALIGN_CENTER, 0, 95);
     lv_obj_set_width(hello_saying_label, 360);
     lv_obj_set_style_text_align(hello_saying_label, LV_TEXT_ALIGN_CENTER, 0);
     
