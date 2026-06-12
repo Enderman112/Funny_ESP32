@@ -116,7 +116,7 @@ static const char* HTML_HEADER = "<!DOCTYPE html><html><head>"
     "</div>"
     "<div id='content'>";
 
-static const char* HTML_FOOTER = "<div class='footer'>Funny ESP32 &copy; 2026 | Powered by ESP-IDF</div>"
+static const char* HTML_FOOTER = "<div class='footer'>Funny ESP32 &copy; 2026 | Powered by ESP-IDF | <a href='https://www.qweather.com' target='_blank'>天气服务由和风天气驱动</a></div>"
     "</div></body></html>";
 
 // ===== 页面：状态 =====
