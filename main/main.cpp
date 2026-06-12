@@ -26,9 +26,52 @@
 #include "adc_bsp.h"
 
 extern "C" const lv_font_t lv_font_MiSansLight_16;
+extern "C" const lv_font_t lv_font_qweather-icons_24;
 
 static const char *TAG = "HelloWorld";
 static nvs_handle_t my_nvs_handle;
+
+// 天气icon code -> Unicode映射表
+static const struct { int code; uint32_t unicode; } weather_icon_map[] = {
+    {100, 0xF101}, {101, 0xF102}, {102, 0xF103}, {103, 0xF104}, {104, 0xF105},
+    {150, 0xF106}, {151, 0xF107}, {152, 0xF108}, {153, 0xF109},
+    {300, 0xF10A}, {301, 0xF10B}, {302, 0xF10C}, {303, 0xF10D}, {304, 0xF10E},
+    {305, 0xF10F}, {306, 0xF110}, {307, 0xF111}, {308, 0xF112}, {309, 0xF113},
+    {310, 0xF114}, {311, 0xF115}, {312, 0xF116}, {313, 0xF117}, {314, 0xF118},
+    {315, 0xF119}, {316, 0xF11A}, {317, 0xF11B}, {318, 0xF11C},
+    {350, 0xF11D}, {351, 0xF11E}, {399, 0xF11F},
+    {400, 0xF120}, {401, 0xF121}, {402, 0xF122}, {403, 0xF123}, {404, 0xF124},
+    {405, 0xF125}, {406, 0xF126}, {407, 0xF127}, {408, 0xF128}, {409, 0xF129},
+    {410, 0xF12A}, {456, 0xF12B}, {457, 0xF12C}, {499, 0xF12D},
+    {500, 0xF12E}, {501, 0xF12F}, {502, 0xF130}, {503, 0xF131}, {504, 0xF132},
+    {507, 0xF133}, {508, 0xF134}, {509, 0xF135}, {510, 0xF136}, {511, 0xF137},
+    {512, 0xF138}, {513, 0xF139}, {514, 0xF13A}, {515, 0xF13B},
+    {900, 0xF144}, {901, 0xF145}, {999, 0xF146},
+};
+
+// icon code字符串 -> UTF-8字符
+static void icon_code_to_utf8(const char *code, char *buf, size_t buf_size)
+{
+    int code_int = atoi(code);
+    for (int i = 0; i < sizeof(weather_icon_map)/sizeof(weather_icon_map[0]); i++) {
+        if (weather_icon_map[i].code == code_int) {
+            uint32_t u = weather_icon_map[i].unicode;
+            if (u < 0x80) {
+                buf[0] = (char)u; buf[1] = '\0';
+            } else if (u < 0x800) {
+                buf[0] = 0xC0 | (u >> 6); buf[1] = 0x80 | (u & 0x3F); buf[2] = '\0';
+            } else if (u < 0x10000) {
+                buf[0] = 0xE0 | (u >> 12); buf[1] = 0x80 | ((u >> 6) & 0x3F);
+                buf[2] = 0x80 | (u & 0x3F); buf[3] = '\0';
+            } else {
+                buf[0] = 0xF0 | (u >> 18); buf[1] = 0x80 | ((u >> 12) & 0x3F);
+                buf[2] = 0x80 | ((u >> 6) & 0x3F); buf[3] = 0x80 | (u & 0x3F); buf[4] = '\0';
+            }
+            return;
+        }
+    }
+    buf[0] = '\0';
+}
 
 DisplayPort RlcdPort(RLCD_MOSI_PIN, RLCD_SCK_PIN, RLCD_DC_PIN, RLCD_CS_PIN, RLCD_RST_PIN, LCD_WIDTH, LCD_HEIGHT);
 
@@ -38,6 +81,7 @@ static lv_obj_t *hello_clock_label = NULL;  // 大时钟
 static lv_obj_t *hello_date_label = NULL;   // 日期
 static lv_obj_t *hello_week_label = NULL;   // 星期
 static lv_obj_t *hello_weather_label = NULL; // 天气
+static lv_obj_t *hello_weather_icon = NULL;  // 天气图标
 static lv_obj_t *hello_city_label = NULL;    // 城市
 static lv_obj_t *hello_saying_label = NULL; // 一言
 static char saying_text[128] = "";
@@ -50,6 +94,7 @@ static char ntp_timezone[32] = "UTC-8";
 
 // 天气数据
 static char weather_text[64] = "天气获取中...";
+static char weather_icon_code[8] = "999";
 static char weather_temp[16] = "--";
 static int weather_provider = 0;  // 0=none, 1=qweather, 2=openweather
 static char qweather_api_key[65] = "";
@@ -492,6 +537,16 @@ static void fetch_weather(void)
                         snprintf(weather_text, sizeof(weather_text), "%s %s°C", temp, weather_temp);
                     }
                 }
+                // 解析icon: "icon":"101"
+                char *icon_start = strstr(weather_buf, "\"icon\":\"");
+                if (icon_start) {
+                    icon_start += 8;
+                    char *icon_end = strchr(icon_start, '"');
+                    if (icon_end && icon_end - icon_start < 8) {
+                        strncpy(weather_icon_code, icon_start, icon_end - icon_start);
+                        weather_icon_code[icon_end - icon_start] = '\0';
+                    }
+                }
             } else if (weather_provider == 2) {
                 // 解析OpenWeatherMap: "temp":25.5,"description":"晴天"
                 char *temp_start = strstr(weather_buf, "\"temp\":");
@@ -627,6 +682,18 @@ static void update_hello_page(void)
     if (hello_weather_label) {
         lv_label_set_text(hello_weather_label, weather_text);
         ESP_LOGD(TAG, "Weather: %s", weather_text);
+    }
+    
+    // 更新天气图标
+    if (hello_weather_icon) {
+        char icon_utf8[8];
+        icon_code_to_utf8(weather_icon_code, icon_utf8, sizeof(icon_utf8));
+        if (strlen(icon_utf8) > 0) {
+            lv_label_set_text(hello_weather_icon, icon_utf8);
+            lv_obj_clear_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
+        }
     }
     
     // 更新一言显示
@@ -1267,6 +1334,7 @@ static void execute_menu_item(void)
                 lv_obj_clear_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_city_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
@@ -1287,6 +1355,7 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_city_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
@@ -1308,6 +1377,7 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(hello_date_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_week_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_city_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
@@ -1379,12 +1449,20 @@ static void create_menu_ui(void)
     lv_obj_align(hello_city_label, LV_ALIGN_CENTER, 0, 25);
     lv_obj_add_flag(hello_city_label, LV_OBJ_FLAG_HIDDEN);
     
+    // 天气图标（天气文字左边）
+    hello_weather_icon = lv_label_create(lv_scr_act());
+    lv_label_set_text(hello_weather_icon, "");
+    lv_obj_set_style_text_font(hello_weather_icon, &lv_font_qweather-icons_24, 0);
+    lv_obj_set_style_text_color(hello_weather_icon, lv_color_hex(0x444444), 0);
+    lv_obj_align(hello_weather_icon, LV_ALIGN_CENTER, -60, 47);
+    lv_obj_add_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
+    
     // 天气（城市下方）
     hello_weather_label = lv_label_create(lv_scr_act());
     lv_label_set_text(hello_weather_label, "");
     lv_obj_set_style_text_font(hello_weather_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_weather_label, lv_color_hex(0x444444), 0);
-    lv_obj_align(hello_weather_label, LV_ALIGN_CENTER, 0, 47);
+    lv_obj_align(hello_weather_label, LV_ALIGN_CENTER, 10, 47);
     
     // 分隔线（天气和一言之间）
     lv_obj_t *sep_line = lv_obj_create(lv_scr_act());
