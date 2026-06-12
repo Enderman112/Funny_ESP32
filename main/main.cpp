@@ -724,6 +724,7 @@ static void fetch_weather(void)
 
 static bool info_page_active = false;
 static bool deepseek_page_active = false;
+static bool weather_page_active = false;
 
 static void update_hello_page(void)
 {
