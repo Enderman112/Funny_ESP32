@@ -1821,7 +1821,7 @@ static void create_menu_ui(void)
     wp_provider_label = lv_label_create(lv_scr_act());
     lv_label_set_text(wp_provider_label, "未配置");
     lv_obj_set_style_text_font(wp_provider_label, &lv_font_MiSansLight_16, 0);
-    lv_obj_set_style_text_color(wp_provider_label, lv_color_hex(0xFF0000), 0);
+    lv_obj_set_style_text_color(wp_provider_label, lv_color_hex(0x000000), 0);
     lv_obj_align(wp_provider_label, LV_ALIGN_BOTTOM_MID, 0, -30);
     lv_obj_add_flag(wp_provider_label, LV_OBJ_FLAG_HIDDEN);
     
