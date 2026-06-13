@@ -508,7 +508,7 @@ static void fetch_weather(void)
         
         esp_http_client_config_t ow_geo_config = {};
         ow_geo_config.url = geo_url;
-        ow_geo_config.timeout_ms = 5000;
+        ow_geo_config.timeout_ms = 10000;
         ow_geo_config.crt_bundle_attach = esp_crt_bundle_attach;
         ow_geo_config.event_handler = geo_http_handler;
         ow_geo_config.user_agent = "Mozilla/5.0";
@@ -517,6 +517,7 @@ static void fetch_weather(void)
         geo_response_buf[0] = '\0';
         geo_response_len = 0;
         
+        ESP_LOGI(TAG, "OW Geocoding URL: %s", geo_url);
         esp_http_client_handle_t ow_geo_client = esp_http_client_init(&ow_geo_config);
         esp_http_client_set_header(ow_geo_client, "Accept", "application/json");
         esp_err_t ow_geo_err = esp_http_client_perform(ow_geo_client);
