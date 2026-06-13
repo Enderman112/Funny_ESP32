@@ -1749,7 +1749,7 @@ static void create_menu_ui(void)
     lv_label_set_text(hello_saying_label, "...");
     lv_obj_set_style_text_font(hello_saying_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(hello_saying_label, lv_color_hex(0x666666), 0);
-    lv_obj_align(hello_saying_label, LV_ALIGN_CENTER, 0, 80);
+    lv_obj_align(hello_saying_label, LV_ALIGN_CENTER, 0, 90);
     lv_obj_set_width(hello_saying_label, 360);
     lv_obj_set_style_text_align(hello_saying_label, LV_TEXT_ALIGN_CENTER, 0);
     
