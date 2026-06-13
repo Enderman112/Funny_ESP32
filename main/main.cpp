@@ -560,7 +560,7 @@ static void fetch_weather(void)
         
         ESP_LOGI(TAG, "OW coords: lat=%s, lon=%s", ow_lat, ow_lon);
         snprintf(url, sizeof(url),
-            "https://api.openweathermap.org/data/2.5/weather?lat=%s&lon=%s&appid=%s&units=metric&lang=zh_cn",
+            "https://api.openweathermap.org/data/4.0/onecall/timeline/1h?lat=%s&lon=%s&appid=%s&units=metric&lang=zh_cn",
             ow_lat, ow_lon, openweather_api_key);
     } else {
         strcpy(weather_text, "未配置API");
@@ -569,7 +569,7 @@ static void fetch_weather(void)
     
     esp_http_client_config_t config = {};
     config.url = url;
-    config.timeout_ms = 10000;
+    config.timeout_ms = 20000;
     config.crt_bundle_attach = esp_crt_bundle_attach;
     config.event_handler = weather_http_handler;
     config.user_agent = "Mozilla/5.0";
