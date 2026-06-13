@@ -508,7 +508,7 @@ static void fetch_weather(void)
         
         esp_http_client_config_t ow_geo_config = {};
         ow_geo_config.url = geo_url;
-        ow_geo_config.timeout_ms = 10000;
+        ow_geo_config.timeout_ms = 15000;
         ow_geo_config.crt_bundle_attach = esp_crt_bundle_attach;
         ow_geo_config.event_handler = geo_http_handler;
         ow_geo_config.user_agent = "Mozilla/5.0";
@@ -1876,6 +1876,7 @@ static void create_menu_ui(void)
     lv_obj_set_style_text_font(wp_provider_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(wp_provider_label, lv_color_hex(0x999999), 0);
     lv_obj_align(wp_provider_label, LV_ALIGN_BOTTOM_LEFT, 20, -5);
+    lv_obj_move_foreground(wp_provider_label);
     lv_obj_add_flag(wp_provider_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create menu panel (right-top corner)
