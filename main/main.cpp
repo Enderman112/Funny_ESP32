@@ -1782,7 +1782,7 @@ static void create_menu_ui(void)
     lv_label_set_text(wp_city_label, "");
     lv_obj_set_style_text_font(wp_city_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(wp_city_label, lv_color_hex(0x444444), 0);
-    lv_obj_align(wp_city_label, LV_ALIGN_TOP_LEFT, 20, 15);
+    lv_obj_align(wp_city_label, LV_ALIGN_CENTER, 0, -20);
     lv_obj_add_flag(wp_city_label, LV_OBJ_FLAG_HIDDEN);
     
     // 天气页 - 大温度（左上角）
