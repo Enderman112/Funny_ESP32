@@ -1782,7 +1782,7 @@ static void create_menu_ui(void)
     lv_label_set_text(wp_city_label, "");
     lv_obj_set_style_text_font(wp_city_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(wp_city_label, lv_color_hex(0x444444), 0);
-    lv_obj_align(wp_city_label, LV_ALIGN_CENTER, 0, -20);
+    lv_obj_align(wp_city_label, LV_ALIGN_TOP_MID, 0, 10);
     lv_obj_add_flag(wp_city_label, LV_OBJ_FLAG_HIDDEN);
     
     // 天气页 - 大温度（左上角）
@@ -1822,7 +1822,7 @@ static void create_menu_ui(void)
     lv_label_set_text(wp_provider_label, "未配置");
     lv_obj_set_style_text_font(wp_provider_label, &lv_font_MiSansLight_16, 0);
     lv_obj_set_style_text_color(wp_provider_label, lv_color_hex(0x999999), 0);
-    lv_obj_align(wp_provider_label, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_align(wp_provider_label, LV_ALIGN_BOTTOM_MID, 0, -30);
     lv_obj_add_flag(wp_provider_label, LV_OBJ_FLAG_HIDDEN);
     
     // Create menu panel (right-top corner)
