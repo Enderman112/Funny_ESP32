@@ -100,6 +100,7 @@ static lv_obj_t *hello_weather_label = NULL; // 天气
 static lv_obj_t *hello_weather_icon = NULL;  // 天气图标
 static lv_obj_t *hello_city_label = NULL;    // 城市
 static lv_obj_t *hello_saying_label = NULL; // 一言
+static lv_obj_t *hello_sep_line = NULL;     // 分隔线
 static char saying_text[128] = "";
 static int last_saying_day = 0;
 static int last_weather_period = -1;
@@ -1551,6 +1552,7 @@ static void execute_menu_item(void)
                 lv_obj_clear_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(hello_sep_line, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
@@ -1579,6 +1581,7 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_sep_line, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
@@ -1608,6 +1611,7 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_sep_line, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
@@ -1634,6 +1638,7 @@ static void execute_menu_item(void)
                 lv_obj_add_flag(hello_weather_icon, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_weather_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_saying_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(hello_sep_line, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(hello_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(deepseek_label, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(mimo_label, LV_OBJ_FLAG_HIDDEN);
@@ -1727,17 +1732,17 @@ static void create_menu_ui(void)
     lv_obj_align(hello_weather_label, LV_ALIGN_CENTER, 10, 47);
     
     // 分隔线（天气和一言之间）
-    lv_obj_t *sep_line = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(sep_line, 380, 2);
-    lv_obj_set_style_bg_color(sep_line, lv_color_hex(0x666666), 0);
-    lv_obj_set_style_bg_opa(sep_line, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(sep_line, 0, 0);
-    lv_obj_set_style_outline_width(sep_line, 0, 0);
-    lv_obj_set_style_shadow_width(sep_line, 0, 0);
-    lv_obj_set_style_radius(sep_line, 0, 0);
-    lv_obj_set_style_pad_all(sep_line, 0, 0);
-    lv_obj_align(sep_line, LV_ALIGN_CENTER, 0, 60);
-    lv_obj_move_foreground(sep_line);
+    hello_sep_line = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(hello_sep_line, 380, 2);
+    lv_obj_set_style_bg_color(hello_sep_line, lv_color_hex(0x666666), 0);
+    lv_obj_set_style_bg_opa(hello_sep_line, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(hello_sep_line, 0, 0);
+    lv_obj_set_style_outline_width(hello_sep_line, 0, 0);
+    lv_obj_set_style_shadow_width(hello_sep_line, 0, 0);
+    lv_obj_set_style_radius(hello_sep_line, 0, 0);
+    lv_obj_set_style_pad_all(hello_sep_line, 0, 0);
+    lv_obj_align(hello_sep_line, LV_ALIGN_CENTER, 0, 60);
+    lv_obj_move_foreground(hello_sep_line);
     
     // 一言（分隔线下方）
     hello_saying_label = lv_label_create(lv_scr_act());
